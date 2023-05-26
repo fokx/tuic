@@ -105,7 +105,7 @@ impl Server {
                 )));
             }
 
-            socket.set_only_v6(!dual_stack)?;
+            // socket.set_only_v6(!dual_stack)?;
         }
 
         let ep = Endpoint::new(
@@ -602,7 +602,7 @@ impl UdpSession {
                     .into_std()?,
             );
 
-            socket.set_only_v6(true)?;
+            // socket.set_only_v6(true)?;
 
             Some(Arc::new(UdpSocket::from_std(StdUdpSocket::from(socket))?))
         } else {
