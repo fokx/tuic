@@ -26,7 +26,7 @@ pub struct Config {
     pub server: SocketAddr,
 
     #[serde(deserialize_with = "deserialize_users")]
-    pub users: HashMap<Uuid, String>,
+    pub users: HashMap<Uuid, Box<[u8]>>,
 
     pub certificate: PathBuf,
 
@@ -38,8 +38,8 @@ pub struct Config {
     )]
     pub congestion_control: CongestionControl,
 
-    #[serde(default = "default::alpn")]
-    pub alpn: Vec<String>,
+    #[serde(default = "default::alpn", deserialize_with = "deserialize_alpn")]
+    pub alpn: Vec<Vec<u8>>,
 
     #[serde(default = "default::udp_relay_ipv6")]
     pub udp_relay_ipv6: bool,
@@ -56,6 +56,12 @@ pub struct Config {
     pub auth_timeout: Duration,
 
     #[serde(
+        default = "default::task_negotiation_timeout",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub task_negotiation_timeout: Duration,
+
+    #[serde(
         default = "default::max_idle_time",
         deserialize_with = "deserialize_duration"
     )]
@@ -63,6 +69,12 @@ pub struct Config {
 
     #[serde(default = "default::max_external_packet_size")]
     pub max_external_packet_size: usize,
+
+    #[serde(default = "default::send_window")]
+    pub send_window: u64,
+
+    #[serde(default = "default::receive_window")]
+    pub receive_window: u32,
 
     #[serde(
         default = "default::gc_interval",
@@ -120,7 +132,7 @@ mod default {
         CongestionControl::Cubic
     }
 
-    pub fn alpn() -> Vec<String> {
+    pub fn alpn() -> Vec<Vec<u8>> {
         Vec::new()
     }
 
@@ -136,12 +148,24 @@ mod default {
         Duration::from_secs(3)
     }
 
+    pub fn task_negotiation_timeout() -> Duration {
+        Duration::from_secs(3)
+    }
+
     pub fn max_idle_time() -> Duration {
         Duration::from_secs(10)
     }
 
     pub fn max_external_packet_size() -> usize {
         1500
+    }
+
+    pub fn send_window() -> u64 {
+        8 * 1024 * 1024 * 2
+    }
+
+    pub fn receive_window() -> u32 {
+        8 * 1024 * 1024
     }
 
     pub fn gc_interval() -> Duration {
@@ -167,17 +191,28 @@ where
     T::from_str(&s).map_err(DeError::custom)
 }
 
-pub fn deserialize_users<'de, D>(deserializer: D) -> Result<HashMap<Uuid, String>, D::Error>
+pub fn deserialize_users<'de, D>(deserializer: D) -> Result<HashMap<Uuid, Box<[u8]>>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let map = HashMap::<Uuid, String>::deserialize(deserializer)?;
+    let users = HashMap::<Uuid, String>::deserialize(deserializer)?;
 
-    if map.is_empty() {
+    if users.is_empty() {
         return Err(DeError::custom("users cannot be empty"));
     }
 
-    Ok(map)
+    Ok(users
+        .into_iter()
+        .map(|(k, v)| (k, v.into_bytes().into_boxed_slice()))
+        .collect())
+}
+
+pub fn deserialize_alpn<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = Vec::<String>::deserialize(deserializer)?;
+    Ok(s.into_iter().map(|alpn| alpn.into_bytes()).collect())
 }
 
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>

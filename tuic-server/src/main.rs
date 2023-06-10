@@ -1,17 +1,13 @@
-use self::{
+use crate::{
     config::{Config, ConfigError},
     server::Server,
 };
 use env_logger::Builder as LoggerBuilder;
-use quinn::ConnectionError;
-use rustls::Error as RustlsError;
-use std::{env, io::Error as IoError, net::SocketAddr, process};
-use thiserror::Error;
-use tuic::Address;
-use tuic_quinn::Error as ModelError;
-use uuid::Uuid;
+use std::{env, process};
 
 mod config;
+mod connection;
+mod error;
 mod server;
 mod utils;
 
@@ -42,30 +38,4 @@ async fn main() {
             process::exit(1);
         }
     }
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error(transparent)]
-    Io(#[from] IoError),
-    #[error(transparent)]
-    Rustls(#[from] RustlsError),
-    #[error("invalid max idle time")]
-    InvalidMaxIdleTime,
-    #[error(transparent)]
-    Connection(#[from] ConnectionError),
-    #[error(transparent)]
-    Model(#[from] ModelError),
-    #[error("duplicated authentication")]
-    DuplicatedAuth,
-    #[error("token length too short")]
-    ExportKeyingMaterial,
-    #[error("authentication failed: {0}")]
-    AuthFailed(Uuid),
-    #[error("received packet from unexpected source")]
-    UnexpectedPacketSource,
-    #[error("create UDP session socket failed: {0}")]
-    CreateUdpSessionSocket(IoError),
-    #[error("{0} resolved to {1} but IPv6 UDP relay disabled")]
-    UdpRelayIpv6Disabled(Address, SocketAddr),
 }

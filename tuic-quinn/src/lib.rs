@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use self::side::Side;
-use bytes::{BufMut, Bytes};
+use bytes::{BufMut, Bytes, BytesMut};
 use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use quinn::{
     Connection as QuinnConnection, ConnectionError, RecvStream, SendDatagramError, SendStream,
@@ -67,7 +67,7 @@ impl<Side> Connection<Side> {
         let model = self.model.send_packet(assoc_id, addr, max_pkt_size);
 
         for (header, frag) in model.into_fragments(pkt) {
-            let mut buf = vec![0; header.len() + frag.len()];
+            let mut buf = BytesMut::with_capacity(header.len() + frag.len());
             header.write(&mut buf);
             buf.put_slice(frag);
             self.conn.send_datagram(Bytes::from(buf))?;
@@ -177,9 +177,10 @@ impl Connection<side::Client> {
             Header::Connect(_) => Err(Error::BadCommandUniStream("connect", recv)),
             Header::Packet(pkt) => {
                 let assoc_id = pkt.assoc_id();
+                let pkt_id = pkt.pkt_id();
                 self.model
                     .recv_packet(pkt)
-                    .map_or(Err(Error::InvalidUdpSession(assoc_id)), |pkt| {
+                    .map_or(Err(Error::InvalidUdpSession(assoc_id, pkt_id)), |pkt| {
                         Ok(Task::Packet(Packet::new(pkt, PacketSource::Quic(recv))))
                     })
             }
@@ -230,17 +231,18 @@ impl Connection<side::Client> {
             Header::Connect(_) => Err(Error::BadCommandDatagram("connect", dg.into_inner())),
             Header::Packet(pkt) => {
                 let assoc_id = pkt.assoc_id();
+                let pkt_id = pkt.pkt_id();
                 if let Some(pkt) = self.model.recv_packet(pkt) {
                     let pos = dg.position() as usize;
                     let mut buf = dg.into_inner();
-                    if (pos + pkt.size() as usize) < buf.len() {
+                    if (pos + pkt.size() as usize) <= buf.len() {
                         buf = buf.slice(pos..pos + pkt.size() as usize);
                         Ok(Task::Packet(Packet::new(pkt, PacketSource::Native(buf))))
                     } else {
                         Err(Error::PayloadLength(pkt.size() as usize, buf.len() - pos))
                     }
                 } else {
-                    Err(Error::InvalidUdpSession(assoc_id))
+                    Err(Error::InvalidUdpSession(assoc_id, pkt_id))
                 }
             }
             Header::Dissociate(_) => Err(Error::BadCommandDatagram("dissociate", dg.into_inner())),
@@ -505,6 +507,16 @@ impl Packet {
         self.model.frag_total()
     }
 
+    /// Whether the packet is from UDP relay mode `quic`
+    pub fn is_from_quic(&self) -> bool {
+        matches!(self.src, PacketSource::Quic(_))
+    }
+
+    /// Whether the packet is from UDP relay mode `native`
+    pub fn is_from_native(&self) -> bool {
+        matches!(self.src, PacketSource::Native(_))
+    }
+
     /// Accepts the packet payload. If the packet is fragmented and not yet fully assembled, `Ok(None)` is returned.
     pub async fn accept(self) -> Result<Option<(Bytes, Address, u16)>, Error> {
         let pkt = match self.src {
@@ -561,8 +573,8 @@ pub enum Error {
     SendDatagram(#[from] SendDatagramError),
     #[error("expecting payload length {0} but got {1}")]
     PayloadLength(usize, usize),
-    #[error("invalid udp session {0}")]
-    InvalidUdpSession(u16),
+    #[error("packet {1:#06x} on invalid udp session {0:#06x}")]
+    InvalidUdpSession(u16, u16),
     #[error(transparent)]
     Assemble(#[from] AssembleError),
     #[error("error unmarshaling uni_stream: {0}")]

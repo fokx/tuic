@@ -5,6 +5,12 @@ Minimalistic TUIC client implementation as a reference
 [![Version](https://img.shields.io/crates/v/tuic-client.svg?style=flat)](https://crates.io/crates/tuic-client)
 [![License](https://img.shields.io/crates/l/tuic-client.svg?style=flat)](https://github.com/EAimTY/tuic/blob/dev/LICENSE)
 
+# Overview
+
+The main goal of this TUIC client implementation is not to provide a full-featured, production-ready TUIC client, but to provide a minimal reference for the TUIC protocol client implementation.
+
+This implementation only contains the most basic requirements of a functional TUIC protocol client. If you are looking for features like HTTP-inbound, load-balance, etc., try other implementations, or implement them yourself.
+
 ## Usage
 
 Download the latest binary from [releases](https://github.com/EAimTY/tuic/releases).
@@ -87,6 +93,16 @@ tuic-client -c PATH/TO/CONFIG
         // Default: false
         "disable_native_certs": false,
 
+        // Optional. Maximum number of bytes to transmit to a peer without acknowledgment
+        // Should be set to at least the expected connection latency multiplied by the maximum desired throughput
+        // Default: 8MiB * 2
+        "send_window": 16777216,
+
+        // Optional. Maximum number of bytes the peer may transmit without acknowledgement on any one stream before becoming blocked
+        // Should be set to at least the expected connection latency multiplied by the maximum desired throughput
+        // Default: 8MiB
+        "receive_window": 8388608,
+
         // Optional. Interval between UDP packet fragment garbage collection
         // Default: 3s
         "gc_interval": "3s",
@@ -121,12 +137,6 @@ tuic-client -c PATH/TO/CONFIG
     "log_level": "warn"
 }
 ```
-
-## Opinions on Advanced Features
-
-This TUIC client implementation is intended to be minimalistic. It is mainly used as a reference and verification of the TUIC protocol specification.
-
-This implementation only contains the most basic requirements of a functional TUIC protocol client. It does not includes any advanced features, such as outbound control, obfuscation, etc. If you want them, try other implementations, or implement them yourself.
 
 ## License
 

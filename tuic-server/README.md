@@ -5,6 +5,12 @@ Minimalistic TUIC server implementation as a reference
 [![Version](https://img.shields.io/crates/v/tuic-server.svg?style=flat)](https://crates.io/crates/tuic-server)
 [![License](https://img.shields.io/crates/l/tuic-server.svg?style=flat)](https://github.com/EAimTY/tuic/blob/dev/LICENSE)
 
+# Overview
+
+The main goal of this TUIC server implementation is not to provide a full-featured, production-ready TUIC server, but to provide a minimal reference for the TUIC protocol server implementation.
+
+This implementation only contains the most basic requirements of a functional TUIC protocol server. If you are looking for features like outbound-control, DNS-caching, etc., try other implementations, or implement them yourself.
+
 ## Usage
 
 Download the latest binary from [releases](https://github.com/EAimTY/tuic/releases).
@@ -54,7 +60,7 @@ tuic-server -c PATH/TO/CONFIG
     "udp_relay_ipv6": true,
 
     // Optional. Enable 0-RTT QUIC connection handshake on the server side
-        // This is not impacting much on the performance, as the protocol is fully multiplexed
+    // This is not impacting much on the performance, as the protocol is fully multiplexed
     // WARNING: Disabling this is highly recommended, as it is vulnerable to replay attacks. See https://blog.cloudflare.com/even-faster-connection-establishment-with-quic-0-rtt-resumption/#attack-of-the-clones
     // Default: false
     "zero_rtt_handshake": false,
@@ -67,6 +73,10 @@ tuic-server -c PATH/TO/CONFIG
     // Default: 3s
     "auth_timeout": "3s",
 
+    // Optional. Maximum duration server expects for task negotiation
+    // Default: 3s
+    "task_negotiation_timeout": "3s",
+
     // Optional. How long the server should wait before closing an idle connection
     // Default: 10s
     "max_idle_time": "10s",
@@ -74,6 +84,16 @@ tuic-server -c PATH/TO/CONFIG
     // Optional. Maximum packet size the server can receive from outbound UDP sockets, in bytes
     // Default: 1500
     "max_external_packet_size": 1500,
+
+    // Optional. Maximum number of bytes to transmit to a peer without acknowledgment
+    // Should be set to at least the expected connection latency multiplied by the maximum desired throughput
+    // Default: 8MiB * 2
+    "send_window": 16777216,
+
+    // Optional. Maximum number of bytes the peer may transmit without acknowledgement on any one stream before becoming blocked
+    // Should be set to at least the expected connection latency multiplied by the maximum desired throughput
+    // Default: 8MiB
+    "receive_window": 8388608,
 
     // Optional. Interval between UDP packet fragment garbage collection
     // Default: 3s
@@ -88,12 +108,6 @@ tuic-server -c PATH/TO/CONFIG
     "log_level": "warn"
 }
 ```
-
-## Opinions on Advanced Features
-
-This TUIC server implementation is intended to be minimalistic. It is mainly used as a reference and verification of the TUIC protocol specification.
-
-This implementation only contains the most basic requirements of a functional TUIC protocol server. It does not includes any advanced features, such as outbound control, obfuscation, etc. If you want them, try other implementations, or implement them yourself.
 
 ## License
 
