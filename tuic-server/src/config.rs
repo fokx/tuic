@@ -1,15 +1,17 @@
-use crate::utils::CongestionControl;
+use std::{
+    collections::HashMap, env::ArgsOs, fmt::Display, fs::File, io::Error as IoError,
+    net::SocketAddr, path::PathBuf, str::FromStr, time::Duration,
+};
+
 use humantime::Duration as HumanDuration;
 use lexopt::{Arg, Error as ArgumentError, Parser};
 use log::LevelFilter;
 use serde::{de::Error as DeError, Deserialize, Deserializer};
 use serde_json::Error as SerdeError;
-use std::{
-    collections::HashMap, env::ArgsOs, fmt::Display, fs::File, io::Error as IoError,
-    net::SocketAddr, path::PathBuf, str::FromStr, time::Duration,
-};
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::utils::CongestionControl;
 
 const HELP_MSG: &str = r#"
 Usage tuic-server [arguments]
@@ -107,7 +109,7 @@ impl Config {
                     }
                 }
                 Arg::Short('v') | Arg::Long("version") => {
-                    return Err(ConfigError::Version(env!("CARGO_PKG_VERSION")))
+                    return Err(ConfigError::Version(env!("CARGO_PKG_VERSION")));
                 }
                 Arg::Short('h') | Arg::Long("help") => return Err(ConfigError::Help(HELP_MSG)),
                 _ => return Err(ConfigError::Argument(arg.unexpected())),
@@ -124,9 +126,11 @@ impl Config {
 }
 
 mod default {
-    use crate::utils::CongestionControl;
-    use log::LevelFilter;
     use std::time::Duration;
+
+    use log::LevelFilter;
+
+    use crate::utils::CongestionControl;
 
     pub fn congestion_control() -> CongestionControl {
         CongestionControl::Cubic
@@ -182,18 +186,18 @@ mod default {
 }
 
 pub fn deserialize_from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-where
-    T: FromStr,
-    <T as FromStr>::Err: Display,
-    D: Deserializer<'de>,
+    where
+            T: FromStr,
+            <T as FromStr>::Err: Display,
+            D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(DeError::custom)
 }
 
 pub fn deserialize_users<'de, D>(deserializer: D) -> Result<HashMap<Uuid, Box<[u8]>>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let users = HashMap::<Uuid, String>::deserialize(deserializer)?;
 
@@ -202,28 +206,28 @@ where
     }
 
     Ok(users
-        .into_iter()
-        .map(|(k, v)| (k, v.into_bytes().into_boxed_slice()))
-        .collect())
+            .into_iter()
+            .map(|(k, v)| (k, v.into_bytes().into_boxed_slice()))
+            .collect())
 }
 
 pub fn deserialize_alpn<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let s = Vec::<String>::deserialize(deserializer)?;
     Ok(s.into_iter().map(|alpn| alpn.into_bytes()).collect())
 }
 
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
 
     s.parse::<HumanDuration>()
-        .map(|d| *d)
-        .map_err(DeError::custom)
+            .map(|d| *d)
+            .map_err(DeError::custom)
 }
 
 #[derive(Debug, Error)]

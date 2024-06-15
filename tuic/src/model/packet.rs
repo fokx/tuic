@@ -1,14 +1,17 @@
-use super::{
-    side::{self, Side},
-    Assemblable, AssembleError, UdpSessions,
-};
-use crate::{Address, Header, Packet as PacketHeader};
-use parking_lot::Mutex;
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
     marker::PhantomData,
     slice,
     sync::Arc,
+};
+
+use parking_lot::Mutex;
+
+use crate::{Address, Header, Packet as PacketHeader};
+
+use super::{
+    Assemblable,
+    AssembleError, side::{self, Side}, UdpSessions,
 };
 
 pub struct Packet<M, B> {
@@ -38,8 +41,8 @@ impl<B> Packet<side::Tx, B> {
 
     /// Fragment the payload into multiple packets
     pub fn into_fragments<'a, P>(self, payload: P) -> Fragments<'a, P>
-    where
-        P: AsRef<[u8]> + 'a,
+        where
+                P: AsRef<[u8]> + 'a,
     {
         let Side::Tx(tx) = self.inner else { unreachable!() };
         Fragments::new(tx.assoc_id, tx.pkt_id, tx.addr, tx.max_pkt_size, payload)
@@ -68,11 +71,11 @@ impl Debug for Packet<side::Tx, ()> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Tx(tx) = &self.inner else { unreachable!() };
         f.debug_struct("Packet")
-            .field("assoc_id", &tx.assoc_id)
-            .field("pkt_id", &tx.pkt_id)
-            .field("addr", &tx.addr)
-            .field("max_pkt_size", &tx.max_pkt_size)
-            .finish()
+                .field("assoc_id", &tx.assoc_id)
+                .field("pkt_id", &tx.pkt_id)
+                .field("addr", &tx.addr)
+                .field("max_pkt_size", &tx.max_pkt_size)
+                .finish()
     }
 }
 
@@ -87,8 +90,8 @@ struct Rx<B> {
 }
 
 impl<B> Packet<side::Rx, B>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
     pub(super) fn new(
         sessions: Arc<Mutex<UdpSessions<B>>>,
@@ -170,13 +173,13 @@ impl<B> Debug for Packet<side::Rx, B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Rx(rx) = &self.inner else { unreachable!() };
         f.debug_struct("Packet")
-            .field("assoc_id", &rx.assoc_id)
-            .field("pkt_id", &rx.pkt_id)
-            .field("frag_total", &rx.frag_total)
-            .field("frag_id", &rx.frag_id)
-            .field("size", &rx.size)
-            .field("addr", &rx.addr)
-            .finish()
+                .field("assoc_id", &rx.assoc_id)
+                .field("pkt_id", &rx.pkt_id)
+                .field("frag_total", &rx.frag_total)
+                .field("frag_id", &rx.frag_id)
+                .field("size", &rx.size)
+                .field("addr", &rx.addr)
+                .finish()
     }
 }
 
@@ -195,8 +198,8 @@ pub struct Fragments<'a, P> {
 }
 
 impl<'a, P> Fragments<'a, P>
-where
-    P: AsRef<[u8]> + 'a,
+    where
+            P: AsRef<[u8]> + 'a,
 {
     fn new(assoc_id: u16, pkt_id: u16, addr: Address, max_pkt_size: usize, payload: P) -> Self {
         let header_addr_ref = Header::Packet(PacketHeader::new(0, 0, 0, 0, 0, addr));
@@ -229,8 +232,8 @@ where
 }
 
 impl<'a, P> Iterator for Fragments<'a, P>
-where
-    P: AsRef<[u8]> + 'a,
+    where
+            P: AsRef<[u8]> + 'a,
 {
     type Item = (Header, &'a [u8]);
 
@@ -240,7 +243,7 @@ where
 
             let payload_size = self.max_pkt_size - header_ref.len();
             let next_frag_end =
-                (self.next_frag_start + payload_size).min(self.payload.as_ref().len());
+                    (self.next_frag_start + payload_size).min(self.payload.as_ref().len());
 
             let Header::Packet(pkt) = header_ref else { unreachable!() };
             let (_, _, _, _, _, addr) = pkt.into();
@@ -263,7 +266,7 @@ where
                 self.next_frag_start = next_frag_end;
 
                 Some((header, payload))
-            } else{
+            } else {
                 None
             }
         } else {
@@ -273,8 +276,8 @@ where
 }
 
 impl<P> ExactSizeIterator for Fragments<'_, P>
-where
-    P: AsRef<[u8]>,
+    where
+            P: AsRef<[u8]>,
 {
     fn len(&self) -> usize {
         self.frag_total as usize

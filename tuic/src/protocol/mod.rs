@@ -4,16 +4,16 @@ use std::{
     net::SocketAddr,
 };
 
+pub use self::{
+    authenticate::Authenticate, connect::Connect, dissociate::Dissociate, heartbeat::Heartbeat,
+    packet::Packet,
+};
+
 mod authenticate;
 mod connect;
 mod dissociate;
 mod heartbeat;
 mod packet;
-
-pub use self::{
-    authenticate::Authenticate, connect::Connect, dissociate::Dissociate, heartbeat::Heartbeat,
-    packet::Packet,
-};
 
 /// The TUIC protocol version
 pub const VERSION: u8 = 0x05;

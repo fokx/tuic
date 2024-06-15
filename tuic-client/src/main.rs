@@ -1,10 +1,12 @@
+use std::{env, process};
+
+use env_logger::Builder as LoggerBuilder;
+
 use crate::{
     config::{Config, ConfigError},
     connection::Connection,
     socks5::Server as Socks5Server,
 };
-use env_logger::Builder as LoggerBuilder;
-use std::{env, process};
 
 mod config;
 mod connection;
@@ -27,10 +29,10 @@ async fn main() {
     };
 
     LoggerBuilder::new()
-        .filter_level(cfg.log_level)
-        .format_module_path(false)
-        .format_target(false)
-        .init();
+            .filter_level(cfg.log_level)
+            .format_module_path(false)
+            .format_target(false)
+            .init();
 
     match Connection::set_config(cfg.relay) {
         Ok(()) => {}

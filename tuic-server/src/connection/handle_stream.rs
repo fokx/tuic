@@ -1,11 +1,15 @@
-use super::Connection;
-use crate::{error::Error, utils::UdpRelayMode};
+use std::sync::atomic::Ordering;
+
 use bytes::Bytes;
 use quinn::{RecvStream, SendStream, VarInt};
 use register_count::Register;
-use std::sync::atomic::Ordering;
 use tokio::time;
+
 use tuic_quinn::Task;
+
+use crate::{error::Error, utils::UdpRelayMode};
+
+use super::Connection;
 
 impl Connection {
     pub async fn handle_uni_stream(self, recv: RecvStream, _reg: Register) {
@@ -20,10 +24,10 @@ impl Connection {
 
         if self.remote_uni_stream_cnt.count() as u32 == max {
             self.max_concurrent_uni_streams
-                .store(max * 2, Ordering::Relaxed);
+                    .store(max * 2, Ordering::Relaxed);
 
             self.inner
-                .set_max_concurrent_uni_streams(VarInt::from(max * 2));
+                    .set_max_concurrent_uni_streams(VarInt::from(max * 2));
         }
 
         let pre_process = async {
@@ -31,8 +35,8 @@ impl Connection {
                 self.task_negotiation_timeout,
                 self.model.accept_uni_stream(recv),
             )
-            .await
-            .map_err(|_| Error::TaskNegotiationTimeout)??;
+                    .await
+                    .map_err(|_| Error::TaskNegotiationTimeout)??;
 
             if let Task::Authenticate(auth) = &task {
                 self.authenticate(auth)?;
@@ -41,10 +45,11 @@ impl Connection {
             tokio::select! {
                 () = self.auth.clone() => {}
                 err = self.inner.closed() => return Err(Error::from(err)),
-            };
+            }
+            ;
 
             let same_pkt_src = matches!(task, Task::Packet(_))
-                && matches!(self.udp_relay_mode.load(), Some(UdpRelayMode::Native));
+                    && matches!(self.udp_relay_mode.load(), Some(UdpRelayMode::Native));
             if same_pkt_src {
                 return Err(Error::UnexpectedPacketSource);
             }
@@ -81,10 +86,10 @@ impl Connection {
 
         if self.remote_bi_stream_cnt.count() as u32 == max {
             self.max_concurrent_bi_streams
-                .store(max * 2, Ordering::Relaxed);
+                    .store(max * 2, Ordering::Relaxed);
 
             self.inner
-                .set_max_concurrent_bi_streams(VarInt::from(max * 2));
+                    .set_max_concurrent_bi_streams(VarInt::from(max * 2));
         }
 
         let pre_process = async {
@@ -92,13 +97,14 @@ impl Connection {
                 self.task_negotiation_timeout,
                 self.model.accept_bi_stream(send, recv),
             )
-            .await
-            .map_err(|_| Error::TaskNegotiationTimeout)??;
+                    .await
+                    .map_err(|_| Error::TaskNegotiationTimeout)??;
 
             tokio::select! {
                 () = self.auth.clone() => {}
                 err = self.inner.closed() => return Err(Error::from(err)),
-            };
+            }
+            ;
 
             Ok(task)
         };
@@ -132,10 +138,11 @@ impl Connection {
             tokio::select! {
                 () = self.auth.clone() => {}
                 err = self.inner.closed() => return Err(Error::from(err)),
-            };
+            }
+            ;
 
             let same_pkt_src = matches!(task, Task::Packet(_))
-                && matches!(self.udp_relay_mode.load(), Some(UdpRelayMode::Quic));
+                    && matches!(self.udp_relay_mode.load(), Some(UdpRelayMode::Quic));
             if same_pkt_src {
                 return Err(Error::UnexpectedPacketSource);
             }

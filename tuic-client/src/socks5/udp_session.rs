@@ -1,17 +1,19 @@
-use crate::error::Error;
-use bytes::Bytes;
-use once_cell::sync::OnceCell;
-use parking_lot::Mutex;
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use socks5_proto::Address;
-use socks5_server::AssociatedUdpSocket;
 use std::{
     collections::HashMap,
     io::{Error as IoError, ErrorKind},
     net::{IpAddr, SocketAddr, UdpSocket as StdUdpSocket},
     sync::Arc,
 };
+
+use bytes::Bytes;
+use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use socks5_proto::Address;
+use socks5_server::AssociatedUdpSocket;
 use tokio::net::UdpSocket;
+
+use crate::error::Error;
 
 pub static UDP_SESSIONS: OnceCell<Mutex<HashMap<u16, UdpSession>>> = OnceCell::new();
 
@@ -56,10 +58,10 @@ impl UdpSession {
         })?;
 
         socket
-            .bind(&SockAddr::from(SocketAddr::from((local_ip, 0))))
-            .map_err(|err| {
-                Error::Socket("failed to bind socks5 server UDP associate socket", err)
-            })?;
+                .bind(&SockAddr::from(SocketAddr::from((local_ip, 0))))
+                .map_err(|err| {
+                    Error::Socket("failed to bind socks5 server UDP associate socket", err)
+                })?;
 
         let socket = UdpSocket::from_std(StdUdpSocket::from(socket)).map_err(|err| {
             Error::Socket("failed to create socks5 server UDP associate socket", err)

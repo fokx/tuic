@@ -1,4 +1,12 @@
-use crate::{config::Local, error::Error};
+use std::{
+    collections::HashMap,
+    net::{SocketAddr, TcpListener as StdTcpListener},
+    sync::{
+        Arc,
+        atomic::{AtomicU16, Ordering},
+    },
+};
+
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -6,20 +14,14 @@ use socks5_server::{
     auth::{NoAuth, Password},
     Auth, Connection, Server as Socks5Server,
 };
-use std::{
-    collections::HashMap,
-    net::{SocketAddr, TcpListener as StdTcpListener},
-    sync::{
-        atomic::{AtomicU16, Ordering},
-        Arc,
-    },
-};
 use tokio::net::TcpListener;
+
+use crate::{config::Local, error::Error};
+
+pub use self::udp_session::UDP_SESSIONS;
 
 mod handle_task;
 mod udp_session;
-
-pub use self::udp_session::UDP_SESSIONS;
 
 static SERVER: OnceCell<Server> = OnceCell::new();
 
@@ -33,20 +35,20 @@ pub struct Server {
 impl Server {
     pub fn set_config(cfg: Local) -> Result<(), Error> {
         SERVER
-            .set(Self::new(
-                cfg.server,
-                cfg.dual_stack,
-                cfg.max_packet_size,
-                cfg.username,
-                cfg.password,
-            )?)
-            .map_err(|_| "failed initializing socks5 server")
-            .unwrap();
+                .set(Self::new(
+                    cfg.server,
+                    cfg.dual_stack,
+                    cfg.max_packet_size,
+                    cfg.username,
+                    cfg.password,
+                )?)
+                .map_err(|_| "failed initializing socks5 server")
+                .unwrap();
 
         UDP_SESSIONS
-            .set(Mutex::new(HashMap::new()))
-            .map_err(|_| "failed initializing socks5 UDP session pool")
-            .unwrap();
+                .set(Mutex::new(HashMap::new()))
+                .map_err(|_| "failed initializing socks5 UDP session pool")
+                .unwrap();
 
         Ok(())
     }
@@ -65,7 +67,7 @@ impl Server {
             };
 
             let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
-                .map_err(|err| Error::Socket("failed to create socks5 server socket", err))?;
+                    .map_err(|err| Error::Socket("failed to create socks5 server socket", err))?;
 
             if let Some(dual_stack) = dual_stack {
                 socket.set_only_v6(!dual_stack).map_err(|err| {
@@ -82,15 +84,15 @@ impl Server {
             })?;
 
             socket
-                .bind(&SockAddr::from(addr))
-                .map_err(|err| Error::Socket("failed to bind socks5 server socket", err))?;
+                    .bind(&SockAddr::from(addr))
+                    .map_err(|err| Error::Socket("failed to bind socks5 server socket", err))?;
 
             socket
-                .listen(i32::MAX)
-                .map_err(|err| Error::Socket("failed to listen on socks5 server socket", err))?;
+                    .listen(i32::MAX)
+                    .map_err(|err| Error::Socket("failed to listen on socks5 server socket", err))?;
 
             TcpListener::from_std(StdTcpListener::from(socket))
-                .map_err(|err| Error::Socket("failed to create socks5 server socket", err))?
+                    .map_err(|err| Error::Socket("failed to create socks5 server socket", err))?
         };
 
         let auth: Arc<dyn Auth + Send + Sync> = match (username, password) {
@@ -131,7 +133,7 @@ impl Server {
                                     server.dual_stack,
                                     server.max_pkt_size,
                                 )
-                                .await;
+                                        .await;
                             }
                             Ok(Connection::Bind(bind, _)) => {
                                 log::info!("[socks5] [{addr}] [bind]");

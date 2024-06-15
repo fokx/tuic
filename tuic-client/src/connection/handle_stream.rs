@@ -1,10 +1,14 @@
-use super::Connection;
-use crate::{error::Error, utils::UdpRelayMode};
+use std::sync::atomic::Ordering;
+
 use bytes::Bytes;
 use quinn::{RecvStream, SendStream, VarInt};
 use register_count::Register;
-use std::sync::atomic::Ordering;
+
 use tuic_quinn::Task;
+
+use crate::{error::Error, utils::UdpRelayMode};
+
+use super::Connection;
 
 impl Connection {
     pub async fn accept_uni_stream(&self) -> Result<(RecvStream, Register), Error> {
@@ -12,10 +16,10 @@ impl Connection {
 
         if self.remote_uni_stream_cnt.count() as u32 == max {
             self.max_concurrent_uni_streams
-                .store(max * 2, Ordering::Relaxed);
+                    .store(max * 2, Ordering::Relaxed);
 
             self.conn
-                .set_max_concurrent_uni_streams(VarInt::from(max * 2));
+                    .set_max_concurrent_uni_streams(VarInt::from(max * 2));
         }
 
         let recv = self.conn.accept_uni().await?;
@@ -28,10 +32,10 @@ impl Connection {
 
         if self.remote_bi_stream_cnt.count() as u32 == max {
             self.max_concurrent_bi_streams
-                .store(max * 2, Ordering::Relaxed);
+                    .store(max * 2, Ordering::Relaxed);
 
             self.conn
-                .set_max_concurrent_bi_streams(VarInt::from(max * 2));
+                    .set_max_concurrent_bi_streams(VarInt::from(max * 2));
         }
 
         let (send, recv) = self.conn.accept_bi().await?;

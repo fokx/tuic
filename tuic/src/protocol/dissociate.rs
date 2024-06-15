@@ -41,8 +41,8 @@ impl Dissociate {
     }
 }
 
-impl From<Dissociate> for (u16,) {
+impl From<Dissociate> for (u16, ) {
     fn from(dissoc: Dissociate) -> Self {
-        (dissoc.assoc_id,)
+        (dissoc.assoc_id, )
     }
 }

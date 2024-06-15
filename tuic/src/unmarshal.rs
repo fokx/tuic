@@ -1,12 +1,14 @@
-use crate::{Address, Authenticate, Connect, Dissociate, Header, Heartbeat, Packet, VERSION};
-use futures_util::{AsyncRead, AsyncReadExt};
 use std::{
     io::{Error as IoError, Read},
     net::SocketAddr,
     string::FromUtf8Error,
 };
+
+use futures_util::{AsyncRead, AsyncReadExt};
 use thiserror::Error;
 use uuid::{Error as UuidError, Uuid};
+
+use crate::{Address, Authenticate, Connect, Dissociate, Header, Heartbeat, Packet, VERSION};
 
 impl Header {
     /// Unmarshals a header from an `AsyncRead` stream

@@ -1,9 +1,11 @@
+use std::{io::Error as IoError, net::SocketAddr};
+
 use quinn::ConnectionError;
 use rustls::Error as RustlsError;
-use std::{io::Error as IoError, net::SocketAddr};
 use thiserror::Error;
-use tuic_quinn::Error as ModelError;
 use uuid::Uuid;
+
+use tuic_quinn::Error as ModelError;
 
 #[derive(Debug, Error)]
 pub enum Error {

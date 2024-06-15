@@ -1,10 +1,12 @@
-use crate::{Address, Authenticate, Connect, Dissociate, Header, Heartbeat, Packet, VERSION};
-use bytes::{BufMut, BytesMut};
-use futures_util::{AsyncWrite, AsyncWriteExt};
 use std::{
     io::{Error as IoError, Write},
     net::SocketAddr,
 };
+
+use bytes::{BufMut, BytesMut};
+use futures_util::{AsyncWrite, AsyncWriteExt};
+
+use crate::{Address, Authenticate, Connect, Dissociate, Header, Heartbeat, Packet, VERSION};
 
 impl Header {
     /// Marshals the header into an `AsyncWrite` stream

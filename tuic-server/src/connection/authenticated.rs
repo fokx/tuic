@@ -1,5 +1,3 @@
-use crossbeam_utils::atomic::AtomicCell;
-use parking_lot::Mutex;
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     future::Future,
@@ -7,6 +5,9 @@ use std::{
     sync::Arc,
     task::{Context, Poll, Waker},
 };
+
+use crossbeam_utils::atomic::AtomicCell;
+use parking_lot::Mutex;
 use uuid::Uuid;
 
 #[derive(Clone)]

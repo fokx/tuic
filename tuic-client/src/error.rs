@@ -1,7 +1,9 @@
+use std::io::Error as IoError;
+
 use quinn::{ConnectError, ConnectionError};
 use rustls::Error as RustlsError;
-use std::io::Error as IoError;
 use thiserror::Error;
+
 use tuic_quinn::Error as ModelError;
 
 #[derive(Debug, Error)]

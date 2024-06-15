@@ -1,7 +1,10 @@
-use super::side::{self, Side};
-use crate::{Address, Connect as ConnectHeader, Header};
-use register_count::Register;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
+
+use register_count::Register;
+
+use crate::{Address, Connect as ConnectHeader, Header};
+
+use super::side::{self, Side};
 
 /// The model of the `Connect` command
 pub struct Connect<M> {
@@ -36,8 +39,8 @@ impl Debug for Connect<side::Tx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Tx(tx) = &self.inner else { unreachable!() };
         f.debug_struct("Connect")
-            .field("header", &tx.header)
-            .finish()
+                .field("header", &tx.header)
+                .finish()
     }
 }
 

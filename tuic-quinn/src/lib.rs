@@ -1,12 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use self::side::Side;
-use bytes::{BufMut, Bytes, BytesMut};
-use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use quinn::{
-    Connection as QuinnConnection, ConnectionError, RecvStream, SendDatagramError, SendStream,
-    UnknownStream, VarInt,
-};
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
     io::{Cursor, Error as IoError},
@@ -14,23 +7,34 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use thiserror::Error;
-use tuic::{
-    model::{
-        side::{Rx, Tx},
-        AssembleError, Authenticate as AuthenticateModel, Connect as ConnectModel,
-        Connection as ConnectionModel, KeyingMaterialExporter as KeyingMaterialExporterImpl,
-        Packet as PacketModel,
-    },
-    Address, Header, UnmarshalError,
+
+use bytes::{BufMut, Bytes, BytesMut};
+use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use quinn::{
+    Connection as QuinnConnection, ConnectionError, RecvStream, SendDatagramError, SendStream,
+    UnknownStream, VarInt,
 };
+use thiserror::Error;
 use uuid::Uuid;
+
+use tuic::{
+    Address,
+    Header, model::{
+        AssembleError,
+        Authenticate as AuthenticateModel, Connect as ConnectModel, Connection as ConnectionModel,
+        KeyingMaterialExporter as KeyingMaterialExporterImpl, Packet as PacketModel,
+        side::{Rx, Tx},
+    }, UnmarshalError,
+};
+
+use self::side::Side;
 
 pub mod side {
     //! Side marker types for a connection.
 
     #[derive(Clone, Debug)]
     pub struct Client;
+
     #[derive(Clone, Debug)]
     pub struct Server;
 
@@ -128,8 +132,8 @@ impl Connection<side::Client> {
     /// Sends an `Authenticate` command.
     pub async fn authenticate(&self, uuid: Uuid, password: impl AsRef<[u8]>) -> Result<(), Error> {
         let model = self
-            .model
-            .send_authenticate(uuid, password, &self.keying_material_exporter());
+                .model
+                .send_authenticate(uuid, password, &self.keying_material_exporter());
 
         let mut send = self.conn.open_uni().await?;
         model.header().async_marshal(&mut send).await?;
@@ -179,10 +183,10 @@ impl Connection<side::Client> {
                 let assoc_id = pkt.assoc_id();
                 let pkt_id = pkt.pkt_id();
                 self.model
-                    .recv_packet(pkt)
-                    .map_or(Err(Error::InvalidUdpSession(assoc_id, pkt_id)), |pkt| {
-                        Ok(Task::Packet(Packet::new(pkt, PacketSource::Quic(recv))))
-                    })
+                        .recv_packet(pkt)
+                        .map_or(Err(Error::InvalidUdpSession(assoc_id, pkt_id)), |pkt| {
+                            Ok(Task::Packet(Packet::new(pkt, PacketSource::Quic(recv))))
+                        })
             }
             Header::Dissociate(_) => Err(Error::BadCommandUniStream("dissociate", recv)),
             Header::Heartbeat(_) => Err(Error::BadCommandUniStream("heartbeat", recv)),
@@ -354,9 +358,9 @@ impl Connection<side::Server> {
 impl<Side> Debug for Connection<Side> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Connection")
-            .field("conn", &self.conn)
-            .field("model", &self.model)
-            .finish()
+                .field("conn", &self.conn)
+                .field("model", &self.model)
+                .finish()
     }
 }
 
@@ -462,10 +466,10 @@ impl Debug for Connect {
         };
 
         f.debug_struct("Connect")
-            .field("model", model)
-            .field("send", &self.send)
-            .field("recv", &self.recv)
-            .finish()
+                .field("model", model)
+                .field("send", &self.send)
+                .field("recv", &self.recv)
+                .finish()
     }
 }
 
@@ -531,10 +535,10 @@ impl Packet {
         let mut asm = Vec::new();
 
         Ok(self
-            .model
-            .assemble(pkt)?
-            .map(|pkt| pkt.assemble(&mut asm))
-            .map(|(addr, assoc_id)| (Bytes::from(asm), addr, assoc_id)))
+                .model
+                .assemble(pkt)?
+                .map(|pkt| pkt.assemble(&mut asm))
+                .map(|(addr, assoc_id)| (Bytes::from(asm), addr, assoc_id)))
     }
 }
 
@@ -556,8 +560,8 @@ impl KeyingMaterialExporterImpl for KeyingMaterialExporter {
     fn export_keying_material(&self, label: &[u8], context: &[u8]) -> [u8; 32] {
         let mut buf = [0; 32];
         self.0
-            .export_keying_material(&mut buf, label, context)
-            .unwrap();
+                .export_keying_material(&mut buf, label, context)
+                .unwrap();
         buf
     }
 }

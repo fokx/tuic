@@ -1,6 +1,8 @@
-use super::side::{self, Side};
-use crate::{Dissociate as DissociateHeader, Header};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
+
+use crate::{Dissociate as DissociateHeader, Header};
+
+use super::side::{self, Side};
 
 /// The model of the `Dissociate` command
 pub struct Dissociate<M> {
@@ -33,8 +35,8 @@ impl Debug for Dissociate<side::Tx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Tx(tx) = &self.inner else { unreachable!() };
         f.debug_struct("Dissociate")
-            .field("header", &tx.header)
-            .finish()
+                .field("header", &tx.header)
+                .finish()
     }
 }
 
@@ -61,7 +63,7 @@ impl Debug for Dissociate<side::Rx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Rx(rx) = &self.inner else { unreachable!() };
         f.debug_struct("Dissociate")
-            .field("assoc_id", &rx.assoc_id)
-            .finish()
+                .field("assoc_id", &rx.assoc_id)
+                .finish()
     }
 }

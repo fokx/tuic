@@ -1,6 +1,3 @@
-use crate::error::Error;
-use rustls::{Certificate, RootCertStore};
-use rustls_pemfile::Item;
 use std::{
     fs::{self, File},
     io::BufReader,
@@ -8,7 +5,12 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
+
+use rustls::{Certificate, RootCertStore};
+use rustls_pemfile::Item;
 use tokio::net;
+
+use crate::error::Error;
 
 pub fn load_certs(paths: Vec<PathBuf>, disable_native: bool) -> Result<RootCertStore, Error> {
     let mut certs = RootCertStore::empty();
@@ -53,14 +55,14 @@ impl ServerAddr {
         &self.domain
     }
 
-    pub async fn resolve(&self) -> Result<impl Iterator<Item = SocketAddr>, Error> {
+    pub async fn resolve(&self) -> Result<impl Iterator<Item=SocketAddr>, Error> {
         if let Some(ip) = self.ip {
             Ok(vec![SocketAddr::from((ip, self.port))].into_iter())
         } else {
             Ok(net::lookup_host((self.domain.as_str(), self.port))
-                .await?
-                .collect::<Vec<_>>()
-                .into_iter())
+                    .await?
+                    .collect::<Vec<_>>()
+                    .into_iter())
         }
     }
 }

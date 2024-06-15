@@ -1,9 +1,3 @@
-use crate::utils::{CongestionControl, UdpRelayMode};
-use humantime::Duration as HumanDuration;
-use lexopt::{Arg, Error as ArgumentError, Parser};
-use log::LevelFilter;
-use serde::{de::Error as DeError, Deserialize, Deserializer};
-use serde_json::Error as SerdeError;
 use std::{
     env::ArgsOs,
     fmt::Display,
@@ -15,8 +9,16 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+
+use humantime::Duration as HumanDuration;
+use lexopt::{Arg, Error as ArgumentError, Parser};
+use log::LevelFilter;
+use serde::{de::Error as DeError, Deserialize, Deserializer};
+use serde_json::Error as SerdeError;
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::utils::{CongestionControl, UdpRelayMode};
 
 const HELP_MSG: &str = r#"
 Usage tuic-client [arguments]
@@ -144,7 +146,7 @@ impl Config {
                     }
                 }
                 Arg::Short('v') | Arg::Long("version") => {
-                    return Err(ConfigError::Version(env!("CARGO_PKG_VERSION")))
+                    return Err(ConfigError::Version(env!("CARGO_PKG_VERSION")));
                 }
                 Arg::Short('h') | Arg::Long("help") => return Err(ConfigError::Help(HELP_MSG)),
                 _ => return Err(ConfigError::Argument(arg.unexpected())),
@@ -164,8 +166,9 @@ mod default {
     use log::LevelFilter;
 
     pub mod relay {
-        use crate::utils::{CongestionControl, UdpRelayMode};
         use std::{path::PathBuf, time::Duration};
+
+        use crate::utils::{CongestionControl, UdpRelayMode};
 
         pub fn certificates() -> Vec<PathBuf> {
             Vec::new()
@@ -232,24 +235,24 @@ mod default {
 }
 
 pub fn deserialize_from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-where
-    T: FromStr,
-    <T as FromStr>::Err: Display,
-    D: Deserializer<'de>,
+    where
+            T: FromStr,
+            <T as FromStr>::Err: Display,
+            D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(DeError::custom)
 }
 
 pub fn deserialize_server<'de, D>(deserializer: D) -> Result<(String, u16), D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let mut s = String::deserialize(deserializer)?;
 
     let (domain, port) = s
-        .rsplit_once(':')
-        .ok_or(DeError::custom("invalid server address"))?;
+            .rsplit_once(':')
+            .ok_or(DeError::custom("invalid server address"))?;
 
     let port = port.parse().map_err(DeError::custom)?;
     s.truncate(domain.len());
@@ -258,38 +261,38 @@ where
 }
 
 pub fn deserialize_password<'de, D>(deserializer: D) -> Result<Arc<[u8]>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     Ok(Arc::from(s.into_bytes().into_boxed_slice()))
 }
 
 pub fn deserialize_alpn<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let s = Vec::<String>::deserialize(deserializer)?;
     Ok(s.into_iter().map(|alpn| alpn.into_bytes()).collect())
 }
 
 pub fn deserialize_optional_bytes<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     Ok(Some(s.into_bytes()))
 }
 
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+            D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
 
     s.parse::<HumanDuration>()
-        .map(|d| *d)
-        .map_err(DeError::custom)
+            .map(|d| *d)
+            .map_err(DeError::custom)
 }
 
 #[derive(Debug, Error)]

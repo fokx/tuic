@@ -1,12 +1,16 @@
-use super::Connection;
-use crate::{error::Error, socks5::UDP_SESSIONS as SOCKS5_UDP_SESSIONS, utils::UdpRelayMode};
+use std::time::Duration;
+
 use bytes::Bytes;
 use quinn::ZeroRttAccepted;
 use socks5_proto::Address as Socks5Address;
-use std::time::Duration;
 use tokio::time;
+
 use tuic::Address;
 use tuic_quinn::{Connect, Packet};
+
+use crate::{error::Error, socks5::UDP_SESSIONS as SOCKS5_UDP_SESSIONS, utils::UdpRelayMode};
+
+use super::Connection;
 
 impl Connection {
     pub async fn authenticate(self, zero_rtt_accepted: Option<ZeroRttAccepted>) {
@@ -18,9 +22,9 @@ impl Connection {
         log::debug!("[relay] [authenticate] sending authentication");
 
         match self
-            .model
-            .authenticate(self.uuid, self.password.clone())
-            .await
+                .model
+                .authenticate(self.uuid, self.password.clone())
+                .await
         {
             Ok(()) => log::info!("[relay] [authenticate] {uuid}", uuid = self.uuid),
             Err(err) => log::warn!("[relay] [authenticate] authentication sending error: {err}"),
@@ -130,11 +134,11 @@ impl Connection {
                 };
 
                 let session = SOCKS5_UDP_SESSIONS
-                    .get()
-                    .unwrap()
-                    .lock()
-                    .get(&assoc_id)
-                    .cloned();
+                        .get()
+                        .unwrap()
+                        .lock()
+                        .get(&assoc_id)
+                        .cloned();
 
                 if let Some(session) = session {
                     if let Err(err) = session.send(pkt, addr).await {

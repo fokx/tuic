@@ -1,17 +1,21 @@
-use self::{authenticated::Authenticated, udp_session::UdpSession};
-use crate::{error::Error, utils::UdpRelayMode};
+use std::{
+    collections::HashMap,
+    sync::{Arc, atomic::AtomicU32},
+    time::Duration,
+};
+
 use crossbeam_utils::atomic::AtomicCell;
 use parking_lot::Mutex;
 use quinn::{Connecting, Connection as QuinnConnection, VarInt};
 use register_count::Counter;
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicU32, Arc},
-    time::Duration,
-};
 use tokio::time;
-use tuic_quinn::{side, Authenticate, Connection as Model};
 use uuid::Uuid;
+
+use tuic_quinn::{Authenticate, Connection as Model, side};
+
+use crate::{error::Error, utils::UdpRelayMode};
+
+use self::{authenticated::Authenticated, udp_session::UdpSession};
 
 mod authenticated;
 mod handle_stream;
@@ -96,7 +100,8 @@ impl Connection {
                                 tokio::spawn(conn.clone().handle_bi_stream(res?, conn.remote_bi_stream_cnt.reg())),
                             res = conn.inner.read_datagram() =>
                                 tokio::spawn(conn.clone().handle_datagram(res?)),
-                        };
+                        }
+                        ;
 
                         Ok::<_, Error>(())
                     };
@@ -161,9 +166,9 @@ impl Connection {
         if self.auth.get().is_some() {
             Err(Error::DuplicatedAuth)
         } else if self
-            .users
-            .get(&auth.uuid())
-            .map_or(false, |password| auth.validate(password))
+                .users
+                .get(&auth.uuid())
+                .map_or(false, |password| auth.validate(password))
         {
             self.auth.set(auth.uuid());
             Ok(())

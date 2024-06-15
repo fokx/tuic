@@ -1,9 +1,11 @@
+use std::{env, process};
+
+use env_logger::Builder as LoggerBuilder;
+
 use crate::{
     config::{Config, ConfigError},
     server::Server,
 };
-use env_logger::Builder as LoggerBuilder;
-use std::{env, process};
 
 mod config;
 mod connection;
@@ -26,10 +28,10 @@ async fn main() {
     };
 
     LoggerBuilder::new()
-        .filter_level(cfg.log_level)
-        .format_module_path(false)
-        .format_target(false)
-        .init();
+            .filter_level(cfg.log_level)
+            .format_module_path(false)
+            .format_target(false)
+            .init();
 
     match Server::init(cfg) {
         Ok(server) => server.start().await,

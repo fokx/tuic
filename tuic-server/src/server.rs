@@ -1,22 +1,24 @@
-use crate::{
-    config::Config,
-    connection::{Connection, DEFAULT_CONCURRENT_STREAMS},
-    error::Error,
-    utils::{self, CongestionControl},
-};
-use quinn::{
-    congestion::{BbrConfig, CubicConfig, NewRenoConfig},
-    Endpoint, EndpointConfig, IdleTimeout, ServerConfig, TokioRuntime, TransportConfig, VarInt,
-};
-use rustls::{version, ServerConfig as RustlsServerConfig};
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::{
     collections::HashMap,
     net::{SocketAddr, UdpSocket as StdUdpSocket},
     sync::Arc,
     time::Duration,
 };
+
+use quinn::{
+    congestion::{BbrConfig, CubicConfig, NewRenoConfig},
+    Endpoint, EndpointConfig, IdleTimeout, ServerConfig, TokioRuntime, TransportConfig, VarInt,
+};
+use rustls::{ServerConfig as RustlsServerConfig, version};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use uuid::Uuid;
+
+use crate::{
+    config::Config,
+    connection::{Connection, DEFAULT_CONCURRENT_STREAMS},
+    error::Error,
+    utils::{self, CongestionControl},
+};
 
 pub struct Server {
     ep: Endpoint,
@@ -36,12 +38,12 @@ impl Server {
         let priv_key = utils::load_priv_key(cfg.private_key)?;
 
         let mut crypto = RustlsServerConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[&version::TLS13])
-            .unwrap()
-            .with_no_client_auth()
-            .with_single_cert(certs, priv_key)?;
+                .with_safe_default_cipher_suites()
+                .with_safe_default_kx_groups()
+                .with_protocol_versions(&[&version::TLS13])
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(certs, priv_key)?;
 
         crypto.alpn_protocols = cfg.alpn;
         crypto.max_early_data_size = u32::MAX;
@@ -51,13 +53,13 @@ impl Server {
         let mut tp_cfg = TransportConfig::default();
 
         tp_cfg
-            .max_concurrent_bidi_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
-            .max_concurrent_uni_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
-            .send_window(cfg.send_window)
-            .stream_receive_window(VarInt::from_u32(cfg.receive_window))
-            .max_idle_timeout(Some(
-                IdleTimeout::try_from(cfg.max_idle_time).map_err(|_| Error::InvalidMaxIdleTime)?,
-            ));
+                .max_concurrent_bidi_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
+                .max_concurrent_uni_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
+                .send_window(cfg.send_window)
+                .stream_receive_window(VarInt::from_u32(cfg.receive_window))
+                .max_idle_timeout(Some(
+                    IdleTimeout::try_from(cfg.max_idle_time).map_err(|_| Error::InvalidMaxIdleTime)?,
+                ));
 
         match cfg.congestion_control {
             CongestionControl::Cubic => {
@@ -80,7 +82,7 @@ impl Server {
             };
 
             let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))
-                .map_err(|err| Error::Socket("failed to create endpoint UDP socket", err))?;
+                    .map_err(|err| Error::Socket("failed to create endpoint UDP socket", err))?;
 
             if let Some(dual_stack) = cfg.dual_stack {
                 socket.set_only_v6(!dual_stack).map_err(|err| {
@@ -89,8 +91,8 @@ impl Server {
             }
 
             socket
-                .bind(&SockAddr::from(cfg.server))
-                .map_err(|err| Error::Socket("failed to bind endpoint UDP socket", err))?;
+                    .bind(&SockAddr::from(cfg.server))
+                    .map_err(|err| Error::Socket("failed to bind endpoint UDP socket", err))?;
 
             StdUdpSocket::from(socket)
         };

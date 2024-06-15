@@ -1,29 +1,25 @@
 //! An abstraction of a TUIC connection, with packet fragmentation management and task counters. No I/O operation is involved internally
 
-use crate::{
-    Address, Authenticate as AuthenticateHeader, Connect as ConnectHeader,
-    Dissociate as DissociateHeader, Heartbeat as HeartbeatHeader, Packet as PacketHeader,
-};
-use parking_lot::Mutex;
-use register_count::{Counter, Register};
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter, Result as FmtResult},
     mem,
     sync::{
-        atomic::{AtomicU16, Ordering},
         Arc,
+        atomic::{AtomicU16, Ordering},
     },
     time::{Duration, Instant},
 };
+
+use parking_lot::Mutex;
+use register_count::{Counter, Register};
 use thiserror::Error;
 use uuid::Uuid;
 
-mod authenticate;
-mod connect;
-mod dissociate;
-mod heartbeat;
-mod packet;
+use crate::{
+    Address, Authenticate as AuthenticateHeader, Connect as ConnectHeader,
+    Dissociate as DissociateHeader, Heartbeat as HeartbeatHeader, Packet as PacketHeader,
+};
 
 pub use self::{
     authenticate::{Authenticate, KeyingMaterialExporter},
@@ -32,6 +28,12 @@ pub use self::{
     heartbeat::Heartbeat,
     packet::{Fragments, Packet},
 };
+
+mod authenticate;
+mod connect;
+mod dissociate;
+mod heartbeat;
+mod packet;
 
 /// An abstraction of a TUIC connection, with packet fragmentation management and task counters. No I/O operation is involved internally
 #[derive(Clone)]
@@ -42,8 +44,8 @@ pub struct Connection<B> {
 }
 
 impl<B> Connection<B>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
     /// Creates a new `Connection`
     #[allow(clippy::new_without_default)]
@@ -80,7 +82,7 @@ where
 
     /// Receives a `Connect`
     pub fn recv_connect(&self, header: ConnectHeader) -> Connect<side::Rx> {
-        let (addr,) = header.into();
+        let (addr, ) = header.into();
         Connect::<side::Rx>::new(self.task_connect_count.reg(), addr)
     }
 
@@ -92,8 +94,8 @@ where
         max_pkt_size: usize,
     ) -> Packet<side::Tx, B> {
         self.udp_sessions
-            .lock()
-            .send_packet(assoc_id, addr, max_pkt_size)
+                .lock()
+                .send_packet(assoc_id, addr, max_pkt_size)
     }
 
     /// Receives a `Packet`. If the association ID is not found, returns `None`
@@ -131,7 +133,7 @@ where
 
     /// Receives a `Dissociate`
     pub fn recv_dissociate(&self, header: DissociateHeader) -> Dissociate<side::Rx> {
-        let (assoc_id,) = header.into();
+        let (assoc_id, ) = header.into();
         self.udp_sessions.lock().recv_dissociate(assoc_id)
     }
 
@@ -163,15 +165,15 @@ where
 }
 
 impl<B> Debug for Connection<B>
-where
-    B: AsRef<[u8]> + Debug,
+    where
+            B: AsRef<[u8]> + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Connection")
-            .field("udp_sessions", &self.udp_sessions)
-            .field("task_connect_count", &self.task_connect_count())
-            .field("task_associate_count", &self.task_associate_count())
-            .finish()
+                .field("udp_sessions", &self.udp_sessions)
+                .field("task_connect_count", &self.task_connect_count())
+                .field("task_associate_count", &self.task_associate_count())
+                .finish()
     }
 }
 
@@ -179,6 +181,7 @@ where
 pub mod side {
     /// The side of a task that sends data
     pub struct Tx;
+
     /// The side of a task that receives data
     pub struct Rx;
 
@@ -194,8 +197,8 @@ struct UdpSessions<B> {
 }
 
 impl<B> UdpSessions<B>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
     fn new(task_associate_count: Counter) -> Self {
         Self {
@@ -211,9 +214,9 @@ where
         max_pkt_size: usize,
     ) -> Packet<side::Tx, B> {
         self.sessions
-            .entry(assoc_id)
-            .or_insert_with(|| UdpSession::new(self.task_associate_count.reg()))
-            .send_packet(assoc_id, addr, max_pkt_size)
+                .entry(assoc_id)
+                .or_insert_with(|| UdpSession::new(self.task_associate_count.reg()))
+                .send_packet(assoc_id, addr, max_pkt_size)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -244,9 +247,9 @@ where
         addr: Address,
     ) -> Packet<side::Rx, B> {
         self.sessions
-            .entry(assoc_id)
-            .or_insert_with(|| UdpSession::new(self.task_associate_count.reg()))
-            .recv_packet(sessions, assoc_id, pkt_id, frag_total, frag_id, size, addr)
+                .entry(assoc_id)
+                .or_insert_with(|| UdpSession::new(self.task_associate_count.reg()))
+                .recv_packet(sessions, assoc_id, pkt_id, frag_total, frag_id, size, addr)
     }
 
     fn send_dissociate(&mut self, assoc_id: u16) -> Dissociate<side::Tx> {
@@ -271,9 +274,9 @@ where
         data: B,
     ) -> Result<Option<Assemblable<B>>, AssembleError> {
         self.sessions
-            .entry(assoc_id)
-            .or_insert_with(|| UdpSession::new(self.task_associate_count.reg()))
-            .insert(assoc_id, pkt_id, frag_total, frag_id, size, addr, data)
+                .entry(assoc_id)
+                .or_insert_with(|| UdpSession::new(self.task_associate_count.reg()))
+                .insert(assoc_id, pkt_id, frag_total, frag_id, size, addr, data)
     }
 
     fn collect_garbage(&mut self, timeout: Duration) {
@@ -284,13 +287,13 @@ where
 }
 
 impl<B> Debug for UdpSessions<B>
-where
-    B: AsRef<[u8]> + Debug,
+    where
+            B: AsRef<[u8]> + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("UdpSessions")
-            .field("sessions", &self.sessions)
-            .finish()
+                .field("sessions", &self.sessions)
+                .finish()
     }
 }
 
@@ -301,8 +304,8 @@ struct UdpSession<B> {
 }
 
 impl<B> UdpSession<B>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
     fn new(task_reg: Register) -> Self {
         Self {
@@ -352,10 +355,10 @@ where
         data: B,
     ) -> Result<Option<Assemblable<B>>, AssembleError> {
         let res = self
-            .pkt_buf
-            .entry(pkt_id)
-            .or_insert_with(|| PacketBuffer::new(frag_total))
-            .insert(assoc_id, frag_total, frag_id, size, addr, data)?;
+                .pkt_buf
+                .entry(pkt_id)
+                .or_insert_with(|| PacketBuffer::new(frag_total))
+                .insert(assoc_id, frag_total, frag_id, size, addr, data)?;
 
         if res.is_some() {
             self.pkt_buf.remove(&pkt_id);
@@ -370,14 +373,14 @@ where
 }
 
 impl<B> Debug for UdpSession<B>
-where
-    B: AsRef<[u8]> + Debug,
+    where
+            B: AsRef<[u8]> + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("UdpSession")
-            .field("pkt_buf", &self.pkt_buf)
-            .field("next_pkt_id", &self.next_pkt_id)
-            .finish()
+                .field("pkt_buf", &self.pkt_buf)
+                .field("next_pkt_id", &self.next_pkt_id)
+                .finish()
     }
 }
 
@@ -391,8 +394,8 @@ struct PacketBuffer<B> {
 }
 
 impl<B> PacketBuffer<B>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
     fn new(frag_total: u8) -> Self {
         let mut buf = Vec::with_capacity(frag_total as usize);
@@ -466,8 +469,8 @@ pub struct Assemblable<B> {
 }
 
 impl<B> Assemblable<B>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
     fn new(buf: Vec<Option<B>>, addr: Address, assoc_id: u16) -> Self {
         Self {
@@ -478,8 +481,8 @@ where
     }
 
     pub fn assemble<A>(self, buf: &mut A) -> (Address, u16)
-    where
-        A: Assembler<B>,
+        where
+                A: Assembler<B>,
     {
         let data = self.buf.into_iter().map(|b| b.unwrap());
         buf.assemble(data);
@@ -489,18 +492,18 @@ where
 
 /// A trait for assembling a packet
 pub trait Assembler<B>
-where
-    Self: Sized,
-    B: AsRef<[u8]>,
+    where
+            Self: Sized,
+            B: AsRef<[u8]>,
 {
-    fn assemble(&mut self, data: impl IntoIterator<Item = B>);
+    fn assemble(&mut self, data: impl IntoIterator<Item=B>);
 }
 
 impl<B> Assembler<B> for Vec<u8>
-where
-    B: AsRef<[u8]>,
+    where
+            B: AsRef<[u8]>,
 {
-    fn assemble(&mut self, data: impl IntoIterator<Item = B>) {
+    fn assemble(&mut self, data: impl IntoIterator<Item=B>) {
         for d in data {
             self.extend_from_slice(d.as_ref());
         }

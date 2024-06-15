@@ -1,29 +1,32 @@
+use std::{
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
+    sync::{Arc, atomic::AtomicU32},
+    time::Duration,
+};
+
+use crossbeam_utils::atomic::AtomicCell;
+use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
+use quinn::{
+    ClientConfig,
+    congestion::{BbrConfig, CubicConfig, NewRenoConfig}, Connection as QuinnConnection, Endpoint as QuinnEndpoint, EndpointConfig,
+    TokioRuntime, TransportConfig, VarInt, ZeroRttAccepted,
+};
+use register_count::Counter;
+use rustls::{ClientConfig as RustlsClientConfig, version};
+use tokio::{
+    sync::{Mutex as AsyncMutex, OnceCell as AsyncOnceCell},
+    time,
+};
+use uuid::Uuid;
+
+use tuic_quinn::{Connection as Model, side};
+
 use crate::{
     config::Relay,
     error::Error,
     utils::{self, CongestionControl, ServerAddr, UdpRelayMode},
 };
-use crossbeam_utils::atomic::AtomicCell;
-use once_cell::sync::OnceCell;
-use parking_lot::Mutex;
-use quinn::{
-    congestion::{BbrConfig, CubicConfig, NewRenoConfig},
-    ClientConfig, Connection as QuinnConnection, Endpoint as QuinnEndpoint, EndpointConfig,
-    TokioRuntime, TransportConfig, VarInt, ZeroRttAccepted,
-};
-use register_count::Counter;
-use rustls::{version, ClientConfig as RustlsClientConfig};
-use std::{
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
-    sync::{atomic::AtomicU32, Arc},
-    time::Duration,
-};
-use tokio::{
-    sync::{Mutex as AsyncMutex, OnceCell as AsyncOnceCell},
-    time,
-};
-use tuic_quinn::{side, Connection as Model};
-use uuid::Uuid;
 
 mod handle_stream;
 mod handle_task;
@@ -53,12 +56,12 @@ impl Connection {
         let certs = utils::load_certs(cfg.certificates, cfg.disable_native_certs)?;
 
         let mut crypto = RustlsClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_protocol_versions(&[&version::TLS13])
-            .unwrap()
-            .with_root_certificates(certs)
-            .with_no_client_auth();
+                .with_safe_default_cipher_suites()
+                .with_safe_default_kx_groups()
+                .with_protocol_versions(&[&version::TLS13])
+                .unwrap()
+                .with_root_certificates(certs)
+                .with_no_client_auth();
 
         crypto.alpn_protocols = cfg.alpn;
         crypto.enable_early_data = true;
@@ -68,11 +71,11 @@ impl Connection {
         let mut tp_cfg = TransportConfig::default();
 
         tp_cfg
-            .max_concurrent_bidi_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
-            .max_concurrent_uni_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
-            .send_window(cfg.send_window)
-            .stream_receive_window(VarInt::from_u32(cfg.receive_window))
-            .max_idle_timeout(None);
+                .max_concurrent_bidi_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
+                .max_concurrent_uni_streams(VarInt::from(DEFAULT_CONCURRENT_STREAMS))
+                .send_window(cfg.send_window)
+                .stream_receive_window(VarInt::from_u32(cfg.receive_window))
+                .max_idle_timeout(None);
 
         match cfg.congestion_control {
             CongestionControl::Cubic => {
@@ -90,10 +93,10 @@ impl Connection {
 
         // Try to create an IPv4 socket as the placeholder first, if it fails, try IPv6.
         let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
-            .or_else(|err| {
-                UdpSocket::bind(SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))).map_err(|_| err)
-            })
-            .map_err(|err| Error::Socket("failed to create endpoint UDP socket", err))?;
+                .or_else(|err| {
+                    UdpSocket::bind(SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))).map_err(|_| err)
+                })
+                .map_err(|err| Error::Socket("failed to create endpoint UDP socket", err))?;
 
         let mut ep = QuinnEndpoint::new(
             EndpointConfig::default(),
@@ -117,9 +120,9 @@ impl Connection {
         };
 
         ENDPOINT
-            .set(Mutex::new(ep))
-            .map_err(|_| "endpoint already initialized")
-            .unwrap();
+                .set(Mutex::new(ep))
+                .map_err(|_| "endpoint already initialized")
+                .unwrap();
 
         TIMEOUT.store(cfg.timeout);
 
@@ -129,20 +132,20 @@ impl Connection {
     pub async fn get() -> Result<Connection, Error> {
         let try_init_conn = async {
             ENDPOINT
-                .get()
-                .unwrap()
-                .lock()
-                .connect()
-                .await
-                .map(AsyncMutex::new)
+                    .get()
+                    .unwrap()
+                    .lock()
+                    .connect()
+                    .await
+                    .map(AsyncMutex::new)
         };
 
         let try_get_conn = async {
             let mut conn = CONNECTION
-                .get_or_try_init(|| try_init_conn)
-                .await?
-                .lock()
-                .await;
+                    .get_or_try_init(|| try_init_conn)
+                    .await?
+                    .lock()
+                    .await;
 
             if conn.is_closed() {
                 let new_conn = ENDPOINT.get().unwrap().lock().connect().await?;
@@ -153,8 +156,8 @@ impl Connection {
         };
 
         let conn = time::timeout(TIMEOUT.load(), try_get_conn)
-            .await
-            .map_err(|_| Error::Timeout)??;
+                .await
+                .map_err(|_| Error::Timeout)??;
 
         Ok(conn)
     }
@@ -184,7 +187,7 @@ impl Connection {
 
         tokio::spawn(
             conn.clone()
-                .init(zero_rtt_accepted, heartbeat, gc_interval, gc_lifetime),
+                    .init(zero_rtt_accepted, heartbeat, gc_interval, gc_lifetime),
         );
 
         conn
@@ -217,7 +220,8 @@ impl Connection {
                     Ok(dg) => tokio::spawn(self.clone().handle_datagram(dg)),
                     Err(err) => break err,
                 },
-            };
+            }
+            ;
         };
 
         log::warn!("[relay] connection error: {err}");
@@ -260,9 +264,9 @@ impl Endpoint {
         for addr in self.server.resolve().await? {
             let connect_to = async {
                 let match_ipv4 =
-                    addr.is_ipv4() && self.ep.local_addr().map_or(false, |addr| addr.is_ipv4());
+                        addr.is_ipv4() && self.ep.local_addr().map_or(false, |addr| addr.is_ipv4());
                 let match_ipv6 =
-                    addr.is_ipv6() && self.ep.local_addr().map_or(false, |addr| addr.is_ipv6());
+                        addr.is_ipv6() && self.ep.local_addr().map_or(false, |addr| addr.is_ipv6());
 
                 if !match_ipv4 && !match_ipv6 {
                     let bind_addr = if addr.is_ipv4() {
@@ -272,12 +276,12 @@ impl Endpoint {
                     };
 
                     self.ep
-                        .rebind(UdpSocket::bind(bind_addr).map_err(|err| {
-                            Error::Socket("failed to create endpoint UDP socket", err)
-                        })?)
-                        .map_err(|err| {
-                            Error::Socket("failed to rebind endpoint UDP socket", err)
-                        })?;
+                            .rebind(UdpSocket::bind(bind_addr).map_err(|err| {
+                                Error::Socket("failed to create endpoint UDP socket", err)
+                            })?)
+                            .map_err(|err| {
+                                Error::Socket("failed to rebind endpoint UDP socket", err)
+                            })?;
                 }
 
                 let conn = self.ep.connect(addr, self.server.server_name())?;

@@ -1,18 +1,22 @@
-use super::{Connection, UdpSession, ERROR_CODE};
-use crate::{error::Error, utils::UdpRelayMode};
-use bytes::Bytes;
 use std::{
     collections::hash_map::Entry,
     io::{Error as IoError, ErrorKind},
     net::SocketAddr,
 };
+
+use bytes::Bytes;
 use tokio::{
     io::{self, AsyncWriteExt},
     net::{self, TcpStream},
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
+
 use tuic::Address;
 use tuic_quinn::{Authenticate, Connect, Packet};
+
+use crate::{error::Error, utils::UdpRelayMode};
+
+use super::{Connection, ERROR_CODE, UdpSession};
 
 impl Connection {
     pub async fn handle_authenticate(&self, auth: Authenticate) {
@@ -64,7 +68,7 @@ impl Connection {
             } else {
                 let _ = conn.compat().shutdown().await;
                 Err(last_err
-                    .unwrap_or_else(|| IoError::new(ErrorKind::NotFound, "no address resolved")))?
+                        .unwrap_or_else(|| IoError::new(ErrorKind::NotFound, "no address resolved")))?
             }
         };
 
@@ -203,13 +207,13 @@ impl Connection {
     }
 }
 
-async fn resolve_dns(addr: &Address) -> Result<impl Iterator<Item = SocketAddr>, IoError> {
+async fn resolve_dns(addr: &Address) -> Result<impl Iterator<Item=SocketAddr>, IoError> {
     match addr {
         Address::None => Err(IoError::new(ErrorKind::InvalidInput, "empty address")),
         Address::DomainAddress(domain, port) => Ok(net::lookup_host((domain.as_str(), *port))
-            .await?
-            .collect::<Vec<_>>()
-            .into_iter()),
+                .await?
+                .collect::<Vec<_>>()
+                .into_iter()),
         Address::SocketAddress(addr) => Ok(vec![*addr].into_iter()),
     }
 }

@@ -1,18 +1,22 @@
-use super::Connection;
-use crate::error::Error;
-use bytes::Bytes;
-use parking_lot::Mutex;
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::{
     io::Error as IoError,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket as StdUdpSocket},
     sync::Arc,
 };
+
+use bytes::Bytes;
+use parking_lot::Mutex;
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::{
     net::UdpSocket,
     sync::oneshot::{self, Sender},
 };
+
 use tuic::Address;
+
+use crate::error::Error;
+
+use super::Connection;
 
 #[derive(Clone)]
 pub struct UdpSession(Arc<UdpSessionInner>);
@@ -35,7 +39,7 @@ impl UdpSession {
     ) -> Result<Self, Error> {
         let socket_v4 = {
             let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))
-                .map_err(|err| Error::Socket("failed to create UDP associate IPv4 socket", err))?;
+                    .map_err(|err| Error::Socket("failed to create UDP associate IPv4 socket", err))?;
 
             socket.set_nonblocking(true).map_err(|err| {
                 Error::Socket(
@@ -45,18 +49,18 @@ impl UdpSession {
             })?;
 
             socket
-                .bind(&SockAddr::from(SocketAddr::from((
-                    Ipv4Addr::UNSPECIFIED,
-                    0,
-                ))))
-                .map_err(|err| Error::Socket("failed to bind UDP associate IPv4 socket", err))?;
+                    .bind(&SockAddr::from(SocketAddr::from((
+                        Ipv4Addr::UNSPECIFIED,
+                        0,
+                    ))))
+                    .map_err(|err| Error::Socket("failed to bind UDP associate IPv4 socket", err))?;
 
             UdpSocket::from_std(StdUdpSocket::from(socket))?
         };
 
         let socket_v6 = if udp_relay_ipv6 {
             let socket = Socket::new(Domain::IPV6, Type::DGRAM, Some(Protocol::UDP))
-                .map_err(|err| Error::Socket("failed to create UDP associate IPv6 socket", err))?;
+                    .map_err(|err| Error::Socket("failed to create UDP associate IPv6 socket", err))?;
 
             socket.set_nonblocking(true).map_err(|err| {
                 Error::Socket(
@@ -70,11 +74,11 @@ impl UdpSession {
             })?;
 
             socket
-                .bind(&SockAddr::from(SocketAddr::from((
-                    Ipv6Addr::UNSPECIFIED,
-                    0,
-                ))))
-                .map_err(|err| Error::Socket("failed to bind UDP associate IPv6 socket", err))?;
+                    .bind(&SockAddr::from(SocketAddr::from((
+                        Ipv6Addr::UNSPECIFIED,
+                        0,
+                    ))))
+                    .map_err(|err| Error::Socket("failed to bind UDP associate IPv6 socket", err))?;
 
             Some(UdpSocket::from_std(StdUdpSocket::from(socket))?)
         } else {
@@ -130,10 +134,10 @@ impl UdpSession {
         let socket = match addr {
             SocketAddr::V4(_) => &self.0.socket_v4,
             SocketAddr::V6(_) => self
-                .0
-                .socket_v6
-                .as_ref()
-                .ok_or_else(|| Error::UdpRelayIpv6Disabled(addr))?,
+                    .0
+                    .socket_v6
+                    .as_ref()
+                    .ok_or_else(|| Error::UdpRelayIpv6Disabled(addr))?,
         };
 
         socket.send_to(&pkt, addr).await?;

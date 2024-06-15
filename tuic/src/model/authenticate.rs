@@ -1,7 +1,10 @@
-use super::side::{self, Side};
-use crate::{Authenticate as AuthenticateHeader, Header};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
+
 use uuid::Uuid;
+
+use crate::{Authenticate as AuthenticateHeader, Header};
+
+use super::side::{self, Side};
 
 /// The model of the `Authenticate` command
 pub struct Authenticate<M> {
@@ -41,8 +44,8 @@ impl Debug for Authenticate<side::Tx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Tx(tx) = &self.inner else { unreachable!() };
         f.debug_struct("Authenticate")
-            .field("header", &tx.header)
-            .finish()
+                .field("header", &tx.header)
+                .finish()
     }
 }
 
@@ -86,9 +89,9 @@ impl Debug for Authenticate<side::Rx> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let Side::Rx(rx) = &self.inner else { unreachable!() };
         f.debug_struct("Authenticate")
-            .field("uuid", &rx.uuid)
-            .field("token", &rx.token)
-            .finish()
+                .field("uuid", &rx.uuid)
+                .field("token", &rx.token)
+                .finish()
     }
 }
 

@@ -1,13 +1,16 @@
-use super::{udp_session::UdpSession, Server, UDP_SESSIONS};
-use crate::connection::{Connection as TuicConnection, ERROR_CODE};
 use socks5_proto::{Address, Reply};
 use socks5_server::{
-    connection::{associate, bind, connect},
-    Associate, Bind, Connect,
+    Associate,
+    Bind, Connect, connection::{associate, bind, connect},
 };
 use tokio::io::{self, AsyncWriteExt};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
+
 use tuic::Address as TuicAddress;
+
+use crate::connection::{Connection as TuicConnection, ERROR_CODE};
+
+use super::{Server, udp_session::UdpSession, UDP_SESSIONS};
 
 impl Server {
     pub async fn handle_associate(
@@ -27,8 +30,8 @@ impl Server {
                 );
 
                 let mut assoc = match assoc
-                    .reply(Reply::Succeeded, Address::SocketAddress(local_addr))
-                    .await
+                        .reply(Reply::Succeeded, Address::SocketAddress(local_addr))
+                        .await
                 {
                     Ok(assoc) => assoc,
                     Err(err) => {
@@ -38,10 +41,10 @@ impl Server {
                 };
 
                 UDP_SESSIONS
-                    .get()
-                    .unwrap()
-                    .lock()
-                    .insert(assoc_id, session.clone());
+                        .get()
+                        .unwrap()
+                        .lock()
+                        .insert(assoc_id, session.clone());
 
                 let handle_local_incoming_pkt = async move {
                     loop {
@@ -93,11 +96,11 @@ impl Server {
                 );
 
                 UDP_SESSIONS
-                    .get()
-                    .unwrap()
-                    .lock()
-                    .remove(&assoc_id)
-                    .unwrap();
+                        .get()
+                        .unwrap()
+                        .lock()
+                        .remove(&assoc_id)
+                        .unwrap();
 
                 let res = match TuicConnection::get().await {
                     Ok(conn) => conn.dissociate(assoc_id).await,
@@ -113,8 +116,8 @@ impl Server {
                 log::warn!("[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] failed setting up UDP associate session: {err}");
 
                 match assoc
-                    .reply(Reply::GeneralFailure, Address::unspecified())
-                    .await
+                        .reply(Reply::GeneralFailure, Address::unspecified())
+                        .await
                 {
                     Ok(mut assoc) => {
                         let _ = assoc.shutdown().await;
@@ -132,8 +135,8 @@ impl Server {
         log::warn!("[socks5] [{peer_addr}] [bind] command not supported");
 
         match bind
-            .reply(Reply::CommandNotSupported, Address::unspecified())
-            .await
+                .reply(Reply::CommandNotSupported, Address::unspecified())
+                .await
         {
             Ok(mut bind) => {
                 let _ = bind.shutdown().await;
@@ -177,8 +180,8 @@ impl Server {
                 log::warn!("[socks5] [{peer_addr}] [connect] [{target_addr}] unable to relay TCP stream: {err}");
 
                 match conn
-                    .reply(Reply::GeneralFailure, Address::unspecified())
-                    .await
+                        .reply(Reply::GeneralFailure, Address::unspecified())
+                        .await
                 {
                     Ok(mut conn) => {
                         let _ = conn.shutdown().await;
