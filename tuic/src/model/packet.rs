@@ -254,14 +254,18 @@ where
                 addr,
             ));
 
-            let payload_ptr = &(self.payload.as_ref()[self.next_frag_start]) as *const u8;
-            let payload =
-                unsafe { slice::from_raw_parts(payload_ptr, next_frag_end - self.next_frag_start) };
+            if let Some(x) = self.payload.as_ref().get(self.next_frag_start) {
+                let payload_ptr = x as *const u8;
+                let payload =
+                        unsafe { slice::from_raw_parts(payload_ptr, next_frag_end - self.next_frag_start) };
 
-            self.next_frag_id += 1;
-            self.next_frag_start = next_frag_end;
+                self.next_frag_id += 1;
+                self.next_frag_start = next_frag_end;
 
-            Some((header, payload))
+                Some((header, payload))
+            } else{
+                None
+            }
         } else {
             None
         }
