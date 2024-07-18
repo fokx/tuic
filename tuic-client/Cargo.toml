@@ -20,11 +20,11 @@ lexopt = { version = "0.3.0", default-features = false }
 log = { version = "0.4.22", default-features = false, features = ["serde", "std"] }
 once_cell = { version = "1.19.0", default-features = false, features = ["parking_lot", "std"] }
 parking_lot = { version = "0.12.3", default-features = false, features = ["send_guard"] }
-quinn = { version = "0.11.2",  features = ["futures-io", "runtime-tokio"] }
+quinn = { version = "0.11.2", features = ["futures-io", "runtime-tokio"] }
 quinn-proto = "0.11.3"
 register-count = { version = "0.1.0", default-features = false, features = ["std"] }
 rustls = { version = "0.23.11" }
-rustls-native-certs = { version = "0.7.1"}
+rustls-native-certs = { version = "0.7.1" }
 rustls-pemfile = { version = "2.1.2" }
 rustls-pki-types = "1.7.0"
 serde = { version = "1.0.204", default-features = false, features = ["derive", "std"] }

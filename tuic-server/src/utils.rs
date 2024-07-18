@@ -5,8 +5,9 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
-use rustls_pki_types::{CertificateDer, PrivateKeyDer};
+
 use rustls_pemfile::Item;
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 
 pub fn load_certs(path: PathBuf) -> Result<Vec<CertificateDer<'static>>, IoError> {
     let mut file = BufReader::new(File::open(&path)?);
@@ -37,10 +38,10 @@ pub fn load_priv_key(path: PathBuf) -> Result<PrivateKeyDer<'static>, IoError> {
 
     for item in std::iter::from_fn(|| rustls_pemfile::read_one(&mut file).transpose()) {
         match item.unwrap() {
-            Item::Pkcs1Key(key) => priv_key=Some(PrivateKeyDer::from(key)),
-            Item::Pkcs8Key(key) => priv_key=Some(PrivateKeyDer::from(key)),
-            Item::Sec1Key(key) => priv_key=Some(PrivateKeyDer::from(key)),
-            _ => {},
+            Item::Pkcs1Key(key) => priv_key = Some(PrivateKeyDer::from(key)),
+            Item::Pkcs8Key(key) => priv_key = Some(PrivateKeyDer::from(key)),
+            Item::Sec1Key(key) => priv_key = Some(PrivateKeyDer::from(key)),
+            _ => {}
         }
     }
     priv_key.ok_or(IoError::new(std::io::ErrorKind::InvalidData, "failed to load private key"))

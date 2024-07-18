@@ -11,8 +11,8 @@ use std::{
 use bytes::{BufMut, Bytes, BytesMut};
 use futures_util::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use quinn::{
-    Connection as QuinnConnection, ConnectionError, RecvStream, SendDatagramError, SendStream,
-    ClosedStream, VarInt,
+    ClosedStream, Connection as QuinnConnection, ConnectionError, RecvStream, SendDatagramError,
+    SendStream, VarInt,
 };
 use thiserror::Error;
 use uuid::Uuid;

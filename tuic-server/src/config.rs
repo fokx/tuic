@@ -186,18 +186,18 @@ mod default {
 }
 
 pub fn deserialize_from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where
-            T: FromStr,
-            <T as FromStr>::Err: Display,
-            D: Deserializer<'de>,
+where
+        T: FromStr,
+        <T as FromStr>::Err: Display,
+        D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(DeError::custom)
 }
 
 pub fn deserialize_users<'de, D>(deserializer: D) -> Result<HashMap<Uuid, Box<[u8]>>, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let users = HashMap::<Uuid, String>::deserialize(deserializer)?;
 
@@ -212,16 +212,16 @@ pub fn deserialize_users<'de, D>(deserializer: D) -> Result<HashMap<Uuid, Box<[u
 }
 
 pub fn deserialize_alpn<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let s = Vec::<String>::deserialize(deserializer)?;
     Ok(s.into_iter().map(|alpn| alpn.into_bytes()).collect())
 }
 
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
 

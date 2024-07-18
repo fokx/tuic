@@ -235,18 +235,18 @@ mod default {
 }
 
 pub fn deserialize_from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where
-            T: FromStr,
-            <T as FromStr>::Err: Display,
-            D: Deserializer<'de>,
+where
+        T: FromStr,
+        <T as FromStr>::Err: Display,
+        D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(DeError::custom)
 }
 
 pub fn deserialize_server<'de, D>(deserializer: D) -> Result<(String, u16), D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let mut s = String::deserialize(deserializer)?;
 
@@ -261,32 +261,32 @@ pub fn deserialize_server<'de, D>(deserializer: D) -> Result<(String, u16), D::E
 }
 
 pub fn deserialize_password<'de, D>(deserializer: D) -> Result<Arc<[u8]>, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     Ok(Arc::from(s.into_bytes().into_boxed_slice()))
 }
 
 pub fn deserialize_alpn<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let s = Vec::<String>::deserialize(deserializer)?;
     Ok(s.into_iter().map(|alpn| alpn.into_bytes()).collect())
 }
 
 pub fn deserialize_optional_bytes<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     Ok(Some(s.into_bytes()))
 }
 
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-    where
-            D: Deserializer<'de>,
+where
+        D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
 

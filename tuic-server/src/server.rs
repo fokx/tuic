@@ -9,11 +9,10 @@ use quinn::{
     congestion::{BbrConfig, CubicConfig, NewRenoConfig},
     Endpoint, EndpointConfig, IdleTimeout, ServerConfig as QuinnServerConfig, TokioRuntime, TransportConfig, VarInt,
 };
+use quinn_proto::crypto::rustls::QuicServerConfig;
 use rustls::{ServerConfig as RustlsServerConfig, version};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use uuid::Uuid;
-use quinn_proto::crypto::rustls::QuicServerConfig;
-
 
 use crate::{
     config::Config,
@@ -21,6 +20,7 @@ use crate::{
     error::Error,
     utils::{self, CongestionControl},
 };
+
 pub struct Server {
     ep: Endpoint,
     users: Arc<HashMap<Uuid, Box<[u8]>>>,

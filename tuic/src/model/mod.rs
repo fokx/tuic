@@ -44,8 +44,8 @@ pub struct Connection<B> {
 }
 
 impl<B> Connection<B>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     /// Creates a new `Connection`
     #[allow(clippy::new_without_default)]
@@ -165,8 +165,8 @@ impl<B> Connection<B>
 }
 
 impl<B> Debug for Connection<B>
-    where
-            B: AsRef<[u8]> + Debug,
+where
+        B: AsRef<[u8]> + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Connection")
@@ -197,8 +197,8 @@ struct UdpSessions<B> {
 }
 
 impl<B> UdpSessions<B>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     fn new(task_associate_count: Counter) -> Self {
         Self {
@@ -287,8 +287,8 @@ impl<B> UdpSessions<B>
 }
 
 impl<B> Debug for UdpSessions<B>
-    where
-            B: AsRef<[u8]> + Debug,
+where
+        B: AsRef<[u8]> + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("UdpSessions")
@@ -304,8 +304,8 @@ struct UdpSession<B> {
 }
 
 impl<B> UdpSession<B>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     fn new(task_reg: Register) -> Self {
         Self {
@@ -373,8 +373,8 @@ impl<B> UdpSession<B>
 }
 
 impl<B> Debug for UdpSession<B>
-    where
-            B: AsRef<[u8]> + Debug,
+where
+        B: AsRef<[u8]> + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("UdpSession")
@@ -394,8 +394,8 @@ struct PacketBuffer<B> {
 }
 
 impl<B> PacketBuffer<B>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     fn new(frag_total: u8) -> Self {
         let mut buf = Vec::with_capacity(frag_total as usize);
@@ -469,8 +469,8 @@ pub struct Assemblable<B> {
 }
 
 impl<B> Assemblable<B>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     fn new(buf: Vec<Option<B>>, addr: Address, assoc_id: u16) -> Self {
         Self {
@@ -481,8 +481,8 @@ impl<B> Assemblable<B>
     }
 
     pub fn assemble<A>(self, buf: &mut A) -> (Address, u16)
-        where
-                A: Assembler<B>,
+    where
+            A: Assembler<B>,
     {
         let data = self.buf.into_iter().map(|b| b.unwrap());
         buf.assemble(data);
@@ -492,16 +492,16 @@ impl<B> Assemblable<B>
 
 /// A trait for assembling a packet
 pub trait Assembler<B>
-    where
-            Self: Sized,
-            B: AsRef<[u8]>,
+where
+        Self: Sized,
+        B: AsRef<[u8]>,
 {
     fn assemble(&mut self, data: impl IntoIterator<Item=B>);
 }
 
 impl<B> Assembler<B> for Vec<u8>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     fn assemble(&mut self, data: impl IntoIterator<Item=B>) {
         for d in data {

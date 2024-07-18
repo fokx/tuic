@@ -6,10 +6,9 @@ use std::{
     str::FromStr,
 };
 
-use rustls::{RootCertStore};
-use rustls_pki_types::{CertificateDer};
-
+use rustls::RootCertStore;
 use rustls_pemfile::Item;
+use rustls_pki_types::CertificateDer;
 use tokio::net;
 
 use crate::error::Error;

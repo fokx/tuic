@@ -42,8 +42,8 @@ impl Connect {
     }
 }
 
-impl From<Connect> for (Address, ) {
+impl From<Connect> for (Address,) {
     fn from(conn: Connect) -> Self {
-        (conn.addr, )
+        (conn.addr,)
     }
 }

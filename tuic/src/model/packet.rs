@@ -41,8 +41,8 @@ impl<B> Packet<side::Tx, B> {
 
     /// Fragment the payload into multiple packets
     pub fn into_fragments<'a, P>(self, payload: P) -> Fragments<'a, P>
-        where
-                P: AsRef<[u8]> + 'a,
+    where
+            P: AsRef<[u8]> + 'a,
     {
         let Side::Tx(tx) = self.inner else { unreachable!() };
         Fragments::new(tx.assoc_id, tx.pkt_id, tx.addr, tx.max_pkt_size, payload)
@@ -90,8 +90,8 @@ struct Rx<B> {
 }
 
 impl<B> Packet<side::Rx, B>
-    where
-            B: AsRef<[u8]>,
+where
+        B: AsRef<[u8]>,
 {
     pub(super) fn new(
         sessions: Arc<Mutex<UdpSessions<B>>>,
@@ -198,8 +198,8 @@ pub struct Fragments<'a, P> {
 }
 
 impl<'a, P> Fragments<'a, P>
-    where
-            P: AsRef<[u8]> + 'a,
+where
+        P: AsRef<[u8]> + 'a,
 {
     fn new(assoc_id: u16, pkt_id: u16, addr: Address, max_pkt_size: usize, payload: P) -> Self {
         let header_addr_ref = Header::Packet(PacketHeader::new(0, 0, 0, 0, 0, addr));
@@ -232,8 +232,8 @@ impl<'a, P> Fragments<'a, P>
 }
 
 impl<'a, P> Iterator for Fragments<'a, P>
-    where
-            P: AsRef<[u8]> + 'a,
+where
+        P: AsRef<[u8]> + 'a,
 {
     type Item = (Header, &'a [u8]);
 
@@ -276,8 +276,8 @@ impl<'a, P> Iterator for Fragments<'a, P>
 }
 
 impl<P> ExactSizeIterator for Fragments<'_, P>
-    where
-            P: AsRef<[u8]>,
+where
+        P: AsRef<[u8]>,
 {
     fn len(&self) -> usize {
         self.frag_total as usize
