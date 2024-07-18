@@ -6,7 +6,9 @@ use std::{
     str::FromStr,
 };
 
-use rustls::{Certificate, RootCertStore};
+use rustls::{RootCertStore};
+use rustls_pki_types::{CertificateDer};
+
 use rustls_pemfile::Item;
 use tokio::net;
 
@@ -20,20 +22,20 @@ pub fn load_certs(paths: Vec<PathBuf>, disable_native: bool) -> Result<RootCertS
 
         while let Ok(Some(item)) = rustls_pemfile::read_one(&mut file) {
             if let Item::X509Certificate(cert) = item {
-                certs.add(&Certificate(cert))?;
+                certs.add(CertificateDer::from(cert))?;
             }
         }
     }
 
     if certs.is_empty() {
         for path in &paths {
-            certs.add(&Certificate(fs::read(path)?))?;
+            certs.add(CertificateDer::from(fs::read(path)?))?;
         }
     }
 
     if !disable_native {
         for cert in rustls_native_certs::load_native_certs().map_err(Error::LoadNativeCerts)? {
-            let _ = certs.add(&Certificate(cert.0));
+            certs.add(cert).unwrap();
         }
     }
 

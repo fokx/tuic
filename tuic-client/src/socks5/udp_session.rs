@@ -68,7 +68,7 @@ impl UdpSession {
         })?;
 
         Ok(Self {
-            socket: Arc::new(AssociatedUdpSocket::from((socket, max_pkt_size))),
+            socket: Arc::new(AssociatedUdpSocket::new(socket, max_pkt_size)),
             assoc_id,
             ctrl_addr,
         })
@@ -81,15 +81,17 @@ impl UdpSession {
             "[socks5] [{ctrl_addr}] [associate] [{assoc_id:#06x}] send packet from {src_addr_display} to {dst_addr}",
             ctrl_addr = self.ctrl_addr,
             assoc_id = self.assoc_id,
-            dst_addr = self.socket.peer_addr().unwrap(),
+            dst_addr = self.socket.get_ref().peer_addr().unwrap(),
         );
 
-        if let Err(err) = self.socket.send(pkt, 0, src_addr).await {
+        let header = socks5_proto::UdpHeader::new(0, src_addr);
+
+        if let Err(err) = self.socket.send(pkt, &header).await {
             log::warn!(
                 "[socks5] [{ctrl_addr}] [associate] [{assoc_id:#06x}] send packet from {src_addr_display} to {dst_addr} error: {err}",
                 ctrl_addr = self.ctrl_addr,
                 assoc_id = self.assoc_id,
-                dst_addr = self.socket.peer_addr().unwrap(),
+                dst_addr = self.socket.get_ref().peer_addr().unwrap(),
             );
 
             return Err(Error::Io(err));
@@ -99,9 +101,9 @@ impl UdpSession {
     }
 
     pub async fn recv(&self) -> Result<(Bytes, Address), Error> {
-        let (pkt, frag, dst_addr, src_addr) = self.socket.recv_from().await?;
-
-        if let Ok(connected_addr) = self.socket.peer_addr() {
+        let (pkt, header, src_addr) = self.socket.recv_from().await.unwrap();
+        let dst_addr = header.address;
+        if let Ok(connected_addr) = self.socket.get_ref().peer_addr() {
             let connected_addr = match connected_addr {
                 SocketAddr::V4(addr) => {
                     if let SocketAddr::V6(_) = src_addr {
@@ -129,10 +131,10 @@ impl UdpSession {
                 ))?;
             }
         } else {
-            self.socket.connect(src_addr).await?;
+            self.socket.get_ref().connect(src_addr).await?;
         }
 
-        if frag != 0 {
+        if header.frag != 0 {
             Err(IoError::new(
                 ErrorKind::Other,
                 "fragmented packet is not supported",
@@ -149,6 +151,6 @@ impl UdpSession {
     }
 
     pub fn local_addr(&self) -> Result<SocketAddr, IoError> {
-        self.socket.local_addr()
+        self.socket.get_ref().local_addr()
     }
 }

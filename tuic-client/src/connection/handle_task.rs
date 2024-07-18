@@ -128,7 +128,7 @@ impl Connection {
                 let addr = match addr {
                     Address::None => unreachable!(),
                     Address::DomainAddress(domain, port) => {
-                        Socks5Address::DomainAddress(domain, port)
+                        Socks5Address::DomainAddress(domain.into(), port)
                     }
                     Address::SocketAddress(addr) => Socks5Address::SocketAddress(addr),
                 };

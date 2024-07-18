@@ -33,7 +33,7 @@ async fn main() {
             .format_module_path(false)
             .format_target(false)
             .init();
-
+    rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
     match Connection::set_config(cfg.relay) {
         Ok(()) => {}
         Err(err) => {

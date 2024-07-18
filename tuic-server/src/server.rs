@@ -7,11 +7,13 @@ use std::{
 
 use quinn::{
     congestion::{BbrConfig, CubicConfig, NewRenoConfig},
-    Endpoint, EndpointConfig, IdleTimeout, ServerConfig, TokioRuntime, TransportConfig, VarInt,
+    Endpoint, EndpointConfig, IdleTimeout, ServerConfig as QuinnServerConfig, TokioRuntime, TransportConfig, VarInt,
 };
 use rustls::{ServerConfig as RustlsServerConfig, version};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use uuid::Uuid;
+use quinn_proto::crypto::rustls::QuicServerConfig;
+
 
 use crate::{
     config::Config,
@@ -19,7 +21,6 @@ use crate::{
     error::Error,
     utils::{self, CongestionControl},
 };
-
 pub struct Server {
     ep: Endpoint,
     users: Arc<HashMap<Uuid, Box<[u8]>>>,
@@ -37,11 +38,7 @@ impl Server {
         let certs = utils::load_certs(cfg.certificate)?;
         let priv_key = utils::load_priv_key(cfg.private_key)?;
 
-        let mut crypto = RustlsServerConfig::builder()
-                .with_safe_default_cipher_suites()
-                .with_safe_default_kx_groups()
-                .with_protocol_versions(&[&version::TLS13])
-                .unwrap()
+        let mut crypto = RustlsServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_no_client_auth()
                 .with_single_cert(certs, priv_key)?;
 
@@ -49,7 +46,8 @@ impl Server {
         crypto.max_early_data_size = u32::MAX;
         crypto.send_half_rtt_data = cfg.zero_rtt_handshake;
 
-        let mut config = ServerConfig::with_crypto(Arc::new(crypto));
+        let mut config =
+                QuinnServerConfig::with_crypto(Arc::new(quinn::crypto::rustls::QuicServerConfig::try_from(crypto).unwrap()));
         let mut tp_cfg = TransportConfig::default();
 
         tp_cfg
@@ -129,7 +127,7 @@ impl Server {
             };
 
             tokio::spawn(Connection::handle(
-                conn,
+                conn.accept().unwrap(),
                 self.users.clone(),
                 self.udp_relay_ipv6,
                 self.zero_rtt_handshake,

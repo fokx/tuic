@@ -8,10 +8,11 @@ use crossbeam_utils::atomic::AtomicCell;
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use quinn::{
-    ClientConfig,
+    ClientConfig as QuinnClientConfig,
     congestion::{BbrConfig, CubicConfig, NewRenoConfig}, Connection as QuinnConnection, Endpoint as QuinnEndpoint, EndpointConfig,
     TokioRuntime, TransportConfig, VarInt, ZeroRttAccepted,
 };
+use quinn_proto::crypto::rustls::QuicClientConfig;
 use register_count::Counter;
 use rustls::{ClientConfig as RustlsClientConfig, version};
 use tokio::{
@@ -55,11 +56,7 @@ impl Connection {
     pub fn set_config(cfg: Relay) -> Result<(), Error> {
         let certs = utils::load_certs(cfg.certificates, cfg.disable_native_certs)?;
 
-        let mut crypto = RustlsClientConfig::builder()
-                .with_safe_default_cipher_suites()
-                .with_safe_default_kx_groups()
-                .with_protocol_versions(&[&version::TLS13])
-                .unwrap()
+        let mut crypto = RustlsClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_root_certificates(certs)
                 .with_no_client_auth();
 
@@ -67,7 +64,7 @@ impl Connection {
         crypto.enable_early_data = true;
         crypto.enable_sni = !cfg.disable_sni;
 
-        let mut config = ClientConfig::new(Arc::new(crypto));
+        let mut config = quinn::ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto).unwrap()));
         let mut tp_cfg = TransportConfig::default();
 
         tp_cfg
