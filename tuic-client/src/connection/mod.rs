@@ -14,7 +14,7 @@ use quinn::{
 };
 use quinn_proto::crypto::rustls::QuicClientConfig;
 use register_count::Counter;
-use rustls::{ClientConfig as RustlsClientConfig, version};
+use rustls::ClientConfig as RustlsClientConfig;
 use tokio::{
     sync::{Mutex as AsyncMutex, OnceCell as AsyncOnceCell},
     time,
@@ -64,7 +64,7 @@ impl Connection {
         crypto.enable_early_data = true;
         crypto.enable_sni = !cfg.disable_sni;
 
-        let mut config = quinn::ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto).unwrap()));
+        let mut config = QuinnClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto).unwrap()));
         let mut tp_cfg = TransportConfig::default();
 
         tp_cfg

@@ -9,8 +9,7 @@ use quinn::{
     congestion::{BbrConfig, CubicConfig, NewRenoConfig},
     Endpoint, EndpointConfig, IdleTimeout, ServerConfig as QuinnServerConfig, TokioRuntime, TransportConfig, VarInt,
 };
-use quinn_proto::crypto::rustls::QuicServerConfig;
-use rustls::{ServerConfig as RustlsServerConfig, version};
+use rustls::ServerConfig as RustlsServerConfig;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use uuid::Uuid;
 
