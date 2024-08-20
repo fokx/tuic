@@ -8,8 +8,8 @@ strip = true
 codegen-units = 1
 panic = "abort"
 
-[patch.crates-io]
+#[patch.crates-io]
 #socks5-server = { git = 'https://github.com/fokx/socks5-server.git' }
 #socks5-proto = { git = "https://github.com/fokx/socks5-server.git" }
-socks5-server = { path = "/f/socks5-server/socks5-server" }
-socks5-proto = { path = "/f/socks5-server/socks5-proto" }
+#socks5-server = { path = "/f/socks5-server/socks5-server" }
+#socks5-proto = { path = "/f/socks5-server/socks5-proto" }
