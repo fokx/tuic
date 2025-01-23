@@ -158,7 +158,7 @@ impl Connection {
                     id = self.id(),
                     addr = self.inner.remote_address(),
                 );
-                self.close();
+                self.close("Authentication error");
             }
         }
     }
@@ -192,7 +192,7 @@ impl Connection {
         self.inner.close_reason().is_some()
     }
 
-    fn close(&self) {
-        self.inner.close(ERROR_CODE, &[]);
+    fn close(&self, reason: &str) {
+        self.inner.close(ERROR_CODE, reason.as_bytes());
     }
 }

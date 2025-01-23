@@ -56,7 +56,7 @@ humantime-serde = "1"
 # Logging
 time = { version = "0.3", features = ["macros", "local-offset"] }
 humantime = { version = "2", default-features = false }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["tracing-log", "std", "local-time","fmt"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["tracing-log", "std", "local-time","fmt", "ansi"] }
 chrono = "0.4"
 tracing = "0.1"
 
