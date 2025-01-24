@@ -62,8 +62,11 @@ impl Connection {
                 // a -> b tx
                 // a <- b rx
                 let (tx, rx, err) = exchange_tcp(&mut conn, &mut stream).await;
-
-                _ = conn.reset(ERROR_CODE);
+                if err.is_some() {
+                    _ = conn.reset(ERROR_CODE);
+                } else {
+                    _ = conn.finish();
+                }
                 _ = stream.shutdown().await;
 
                 let uuid = self

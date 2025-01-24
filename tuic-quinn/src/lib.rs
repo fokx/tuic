@@ -441,6 +441,14 @@ impl Connect {
         let recv_res = self.recv.stop(error_code);
         (send_res, recv_res)
     }
+
+    /// Tx: send FIN mark
+    /// Rx: refuse accepting data
+    pub fn finish(&mut self) -> (Result<(), ClosedStream>, Result<(), ClosedStream>) {
+        let send_res = self.send.finish();
+        let recv_res = self.recv.stop(VarInt::from_u32(0));
+        (send_res, recv_res)
+    }
 }
 
 impl AsyncRead for Connect {
