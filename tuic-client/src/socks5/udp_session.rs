@@ -11,6 +11,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use socks5_proto::Address;
 use socks5_server::AssociatedUdpSocket;
 use tokio::{net::UdpSocket, sync::RwLock as AsyncRwLock};
+use tracing::{debug, warn};
 
 use crate::error::Error;
 
@@ -76,7 +77,7 @@ impl UdpSession {
     pub async fn send(&self, pkt: Bytes, src_addr: Address) -> Result<(), Error> {
         let src_addr_display = src_addr.to_string();
 
-        log::debug!(
+        debug!(
             "[socks5] [{ctrl_addr}] [associate] [{assoc_id:#06x}] send packet from \
              {src_addr_display} to {dst_addr}",
             ctrl_addr = self.ctrl_addr,
@@ -85,7 +86,7 @@ impl UdpSession {
         );
 
         if let Err(err) = self.socket.send(pkt, 0, src_addr).await {
-            log::warn!(
+            warn!(
                 "[socks5] [{ctrl_addr}] [associate] [{assoc_id:#06x}] send packet from \
                  {src_addr_display} to {dst_addr} error: {err}",
                 ctrl_addr = self.ctrl_addr,
@@ -140,7 +141,7 @@ impl UdpSession {
             ))?;
         }
 
-        log::debug!(
+        debug!(
             "[socks5] [{ctrl_addr}] [associate] [{assoc_id:#06x}] receive packet from {src_addr} \
              to {dst_addr}",
             ctrl_addr = self.ctrl_addr,

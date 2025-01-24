@@ -4,6 +4,7 @@ use socks5_server::{
     connection::{associate, bind, connect},
 };
 use tokio::io::{self, AsyncWriteExt};
+use tracing::{debug, warn};
 use tuic::Address as TuicAddress;
 
 use super::{Server, UDP_SESSIONS, udp_session::UdpSession};
@@ -22,7 +23,7 @@ impl Server {
         match UdpSession::new(assoc_id, peer_addr, local_ip, dual_stack, max_pkt_size) {
             Ok(session) => {
                 let local_addr = session.local_addr().unwrap();
-                log::debug!(
+                debug!(
                     "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] bound to {local_addr}"
                 );
 
@@ -32,7 +33,7 @@ impl Server {
                 {
                     Ok(assoc) => assoc,
                     Err(err) => {
-                        log::warn!(
+                        warn!(
                             "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] command reply \
                              error: {err}"
                         );
@@ -52,7 +53,7 @@ impl Server {
                         let (pkt, target_addr) = match session.recv().await {
                             Ok(res) => res,
                             Err(err) => {
-                                log::warn!(
+                                warn!(
                                     "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] failed \
                                      to receive UDP packet: {err}"
                                 );
@@ -78,7 +79,7 @@ impl Server {
                             match forward.await {
                                 Ok(()) => {}
                                 Err(err) => {
-                                    log::warn!(
+                                    warn!(
                                         "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] \
                                          failed relaying UDP packet: {err}"
                                     );
@@ -94,16 +95,14 @@ impl Server {
                 } {
                     Ok(()) => {}
                     Err(err) => {
-                        log::warn!(
+                        warn!(
                             "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] associate \
                              connection error: {err}"
                         )
                     }
                 }
 
-                log::debug!(
-                    "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] stopped associating"
-                );
+                debug!("[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] stopped associating");
 
                 UDP_SESSIONS
                     .get()
@@ -116,14 +115,14 @@ impl Server {
                 if let Ok(conn) = TuicConnection::get_conn().await
                     && let Err(err) = conn.dissociate(assoc_id).await
                 {
-                    log::warn!(
+                    warn!(
                         "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] failed stopping UDP \
                          relaying session: {err}"
                     )
                 }
             }
             Err(err) => {
-                log::warn!(
+                warn!(
                     "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] failed setting up UDP \
                      associate session: {err}"
                 );
@@ -136,7 +135,7 @@ impl Server {
                         let _ = assoc.shutdown().await;
                     }
                     Err(err) => {
-                        log::warn!(
+                        warn!(
                             "[socks5] [{peer_addr}] [associate] [{assoc_id:#06x}] command reply \
                              error: {err}"
                         )
@@ -148,7 +147,7 @@ impl Server {
 
     pub async fn handle_bind(bind: Bind<bind::NeedFirstReply>) {
         let peer_addr = bind.peer_addr().unwrap();
-        log::warn!("[socks5] [{peer_addr}] [bind] command not supported");
+        warn!("[socks5] [{peer_addr}] [bind] command not supported");
 
         match bind
             .reply(Reply::CommandNotSupported, Address::unspecified())
@@ -157,7 +156,7 @@ impl Server {
             Ok(mut bind) => {
                 let _ = bind.shutdown().await;
             }
-            Err(err) => log::warn!("[socks5] [{peer_addr}] [bind] command reply error: {err}"),
+            Err(err) => warn!("[socks5] [{peer_addr}] [bind] command reply error: {err}"),
         }
     }
 
@@ -180,22 +179,22 @@ impl Server {
                     Err(err) => {
                         let _ = conn.shutdown().await;
                         let _ = relay.reset(ERROR_CODE);
-                        log::warn!(
+                        warn!(
                             "[socks5] [{peer_addr}] [connect] [{target_addr}] TCP stream relaying \
-                             error: {err}"
+                             error: {err:#?}"
                         );
                     }
                 },
                 Err(err) => {
                     let _ = relay.shutdown().await;
-                    log::warn!(
+                    warn!(
                         "[socks5] [{peer_addr}] [connect] [{target_addr}] command reply error: \
                          {err}"
                     );
                 }
             },
             Err(err) => {
-                log::warn!(
+                warn!(
                     "[socks5] [{peer_addr}] [connect] [{target_addr}] unable to relay TCP stream: \
                      {err}"
                 );
@@ -208,7 +207,7 @@ impl Server {
                         let _ = conn.shutdown().await;
                     }
                     Err(err) => {
-                        log::warn!(
+                        warn!(
                             "[socks5] [{peer_addr}] [connect] [{target_addr}] command reply \
                              error: {err}"
                         )

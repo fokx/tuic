@@ -22,6 +22,7 @@ use tokio::{
     sync::{OnceCell as AsyncOnceCell, RwLock as AsyncRwLock},
     time,
 };
+use tracing::{debug, info, warn};
 use tuic_quinn::{Connection as Model, side};
 use uuid::Uuid;
 
@@ -284,7 +285,7 @@ impl Connection {
         gc_interval: Duration,
         gc_lifetime: Duration,
     ) {
-        log::info!("[relay] connection established");
+        info!("[relay] connection established");
 
         tokio::spawn(self.clone().authenticate(zero_rtt_accepted));
         tokio::spawn(self.clone().heartbeat(heartbeat));
@@ -307,7 +308,7 @@ impl Connection {
             };
         };
 
-        log::warn!("[relay] connection error: {err}");
+        warn!("[relay] connection error: {err}");
     }
 
     fn is_closed(&self) -> bool {
@@ -322,7 +323,7 @@ impl Connection {
                 break;
             }
 
-            log::debug!("[relay] packet fragment garbage collecting event");
+            debug!("[relay] packet fragment garbage collecting event");
             self.model.collect_garbage(gc_lifetime);
         }
     }

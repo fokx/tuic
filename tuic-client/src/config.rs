@@ -12,7 +12,6 @@ use std::{
 
 use humantime::Duration as HumanDuration;
 use lexopt::{Arg, Error as ArgumentError, Parser};
-use log::LevelFilter;
 use serde::{Deserialize, Deserializer, de::Error as DeError};
 use serde_json::Error as SerdeError;
 use thiserror::Error;
@@ -37,7 +36,7 @@ pub struct Config {
     pub local: Local,
 
     #[serde(default = "default::log_level")]
-    pub log_level: LevelFilter,
+    pub log_level: String,
 }
 
 #[derive(Deserialize)]
@@ -179,7 +178,6 @@ impl Config {
 }
 
 mod default {
-    use log::LevelFilter;
 
     pub mod relay {
         use std::{path::PathBuf, time::Duration};
@@ -271,8 +269,8 @@ mod default {
         }
     }
 
-    pub fn log_level() -> LevelFilter {
-        LevelFilter::Warn
+    pub fn log_level() -> String {
+        "info".into()
     }
 }
 

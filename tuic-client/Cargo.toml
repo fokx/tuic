@@ -20,10 +20,7 @@ jemallocator = ["tikv-jemallocator"]
 [dependencies]
 bytes = { version = "1", default-features = false, features = ["std"] }
 
-env_logger = { version = "0.11", default-features = false, features = ["humantime"] }
-humantime = { version = "2", default-features = false }
 lexopt = { version = "0.3", default-features = false }
-log = { version = "0.4", default-features = false, features = ["serde", "std"] }
 once_cell = { version = "1", default-features = false, features = ["parking_lot", "std"] }
 
 serde = { version = "1", default-features = false, features = ["derive", "std"] }
@@ -56,5 +53,12 @@ rustls-pemfile = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 anyhow = "1"
 eyre = { version = "0" }
+
+# Logging
+time = { version = "0.3", features = ["macros", "local-offset"] }
+humantime = { version = "2", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["tracing-log", "std", "local-time", "fmt", "ansi"] }
+chrono = "0.4"
+tracing = "0.1"
 
 tikv-jemallocator = { version = "0.6", optional = true }

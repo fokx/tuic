@@ -3,6 +3,7 @@ use std::sync::atomic::Ordering;
 use bytes::Bytes;
 use quinn::{RecvStream, SendStream, VarInt};
 use register_count::Register;
+use tracing::{debug, warn};
 use tuic_quinn::Task;
 
 use super::Connection;
@@ -46,7 +47,7 @@ impl Connection {
     }
 
     pub async fn handle_uni_stream(self, recv: RecvStream, _reg: Register) {
-        log::debug!("[relay] incoming unidirectional stream");
+        debug!("[relay] incoming unidirectional stream");
 
         let res = match self.model.accept_uni_stream(recv).await {
             Err(err) => Err(Error::Model(err)),
@@ -61,12 +62,12 @@ impl Connection {
         };
 
         if let Err(err) = res {
-            log::warn!("[relay] incoming unidirectional stream error: {err}");
+            warn!("[relay] incoming unidirectional stream error: {err}");
         }
     }
 
     pub async fn handle_bi_stream(self, send: SendStream, recv: RecvStream, _reg: Register) {
-        log::debug!("[relay] incoming bidirectional stream");
+        debug!("[relay] incoming bidirectional stream");
 
         let res = match self.model.accept_bi_stream(send, recv).await {
             Err(err) => Err::<(), _>(Error::Model(err)),
@@ -74,12 +75,12 @@ impl Connection {
         };
 
         if let Err(err) = res {
-            log::warn!("[relay] incoming bidirectional stream error: {err}");
+            warn!("[relay] incoming bidirectional stream error: {err}");
         }
     }
 
     pub async fn handle_datagram(self, dg: Bytes) {
-        log::debug!("[relay] incoming datagram");
+        debug!("[relay] incoming datagram");
 
         let res = match self.model.accept_datagram(dg) {
             Err(err) => Err(Error::Model(err)),
@@ -94,7 +95,7 @@ impl Connection {
         };
 
         if let Err(err) = res {
-            log::warn!("[relay] incoming datagram error: {err}");
+            warn!("[relay] incoming datagram error: {err}");
         }
     }
 }
