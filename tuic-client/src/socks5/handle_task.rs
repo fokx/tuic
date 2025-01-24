@@ -181,7 +181,7 @@ impl Server {
                         let _ = relay.reset(ERROR_CODE);
                         warn!(
                             "[socks5] [{peer_addr}] [connect] [{target_addr}] TCP stream relaying \
-                             error: {err:#?}"
+                             error: {err}"
                         );
                     }
                 },
