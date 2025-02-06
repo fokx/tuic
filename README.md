@@ -49,3 +49,15 @@ under [GNU General Public License v3.0](https://github.com/EAimTY/tuic/blob/dev/
 
 However, the concept of the TUIC protocol is license-free. You can implement, modify, and redistribute the protocol
 without any restrictions, even for commercial use
+
+## Note
+if any error is met when building for Windows using:
+```
+cargo xwin build --release --target x86_64-pc-windows-msvc
+cargo xwin build --release --target x86_64-pc-windows-gnu
+```
+
+try:
+```
+cargo install --force --locked bindgen-cli  
+```

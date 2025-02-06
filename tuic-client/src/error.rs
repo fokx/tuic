@@ -15,7 +15,7 @@ pub enum Error {
     #[error(transparent)]
     Model(#[from] ModelError),
     #[error("load native certificates error: {0}")]
-    LoadNativeCerts(IoError),
+    LoadNativeCerts(IoError), // this error is not used any more
     #[error(transparent)]
     Rustls(#[from] RustlsError),
     #[error("{0}: {1}")]
