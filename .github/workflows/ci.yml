@@ -42,107 +42,97 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             release-name: x86_64-linux
-            cross: true
+            tool: cross
             extra-args: "--features jemallocator"
           - os: ubuntu-latest
             target: i686-unknown-linux-gnu
             release-name: i686-linux
-            cross: true
+            tool: cross
             extra-args: "--features jemallocator"
           # Linux x86 musl
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             release-name: x86_64-linux-musl
-            cross: true
+            tool: cross
             extra-args: "--features jemallocator"
           - os: ubuntu-latest
             target: i686-unknown-linux-musl
             release-name: i686-linux-musl
-            cross: true
+            tool: cross
             extra-args: "--no-default-features --features ring"
           # Linux arm
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             release-name: aarch64-linux
-            cross: true
+            tool: cross
             extra-args: "--features jemallocator"
           - os: ubuntu-latest
             target: armv7-unknown-linux-gnueabi
             release-name: armv7-linux
-            cross: true
+            tool: cross
             extra-args: "--no-default-features --features ring,jemallocator"
           - os: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
             release-name: armv7-linux-hf
-            cross: true
+            tool: cross
             extra-args: "--no-default-features --features ring,jemallocator"
           # Linux arm musl
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             release-name: aarch64-linux-musl
-            cross: true
+            tool: cross
             extra-args: "--features jemallocator"
           - os: ubuntu-latest
             target: armv7-unknown-linux-musleabi
             release-name: armv7-linux-musl
-            cross: true
+            tool: cross
             extra-args: "--no-default-features --features ring"
           - os: ubuntu-latest
             target: armv7-unknown-linux-musleabihf
             release-name: armv7-linux-muslhf
-            cross: true
+            tool: cross
             extra-args: "--no-default-features --features ring"
           # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             release-name: x86_64-windows
-            cross: false
             postfix: ".exe"
           - os: windows-latest
             target: i686-pc-windows-msvc
             release-name: i686-windows
-            cross: false
             postfix: ".exe"
             extra-args: "--no-default-features --features ring"
           # Windows Arm
           - os: windows-latest
             target: aarch64-pc-windows-msvc
             release-name: aarch64-windows
-            cross: false
             postfix: ".exe"
             skip-test: true
           # MacOSX
           - os: macos-13
             target: x86_64-apple-darwin
             release-name: x86_64-darwin
-            cross: false
             extra-args: "--features jemallocator"
-            
           - os: macos-14
             target: aarch64-apple-darwin
             release-name: aarch64-darwin
-            cross: false
             extra-args: "--features jemallocator"
-
           # FreeBSD
-          # - os: ubuntu-latest
-          #   target: x86_64-unknown-freebsd
-          #   release-name: x86_64-freebsd
-          #   cross: true
-          #   rustflags: "-Ctarget-feature=+sse2,+sse3,+avx"
-
+          - os: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            release-name: x86_64-freebsd
+            tool: cross
           # RISC-V
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
             release-name: riscv64gc-linux
-            cross: true
+            tool: cross
             extra-args: "--no-default-features --features ring,jemallocator"
-
           # Loongarch64 ring problem
-          # - os: ubuntu-latest
-          #   target: loongarch64-unknown-linux-gnu
-          #   release-name: loongarch64-linux
-          #   cross: true
+          - os: ubuntu-latest
+            target: loongarch64-unknown-linux-gnu
+            release-name: loongarch64-linux
+            tool: cross
 
           # Linux mips: tier-3, pity
           # Windows gnu: tokio dont work
@@ -171,14 +161,14 @@ jobs:
       - name: Cargo fmt
         uses: clechasseur/rs-cargo@v2
         with:
-          use-cross: ${{ matrix.cross }}
+          tool: ${{ matrix.tool }}
           command: fmt
           args: --all -- --check
 
       - name: Cargo clippy
         uses: clechasseur/rs-cargo@v2
         with:
-          use-cross: ${{ matrix.cross }}
+          tool: ${{ matrix.tool }}
           command: clippy
           args: --all --target ${{ matrix.target }} ${{ matrix.extra-args }} -- -D warnings
         env:
@@ -188,7 +178,7 @@ jobs:
         uses: clechasseur/rs-cargo@v2
         if: ${{ !matrix.skip-test }}
         with:
-          use-cross: ${{ matrix.cross }}
+          tool: ${{ matrix.tool }}
           command: test
           args: --all --target ${{ matrix.target }} ${{ matrix.extra-args }}
         env:
@@ -198,7 +188,7 @@ jobs:
       - name: Cargo build
         uses: clechasseur/rs-cargo@v2
         with:
-          use-cross: ${{ matrix.cross }}
+          tool: ${{ matrix.tool }}
           command: build
           args: --workspace --release --target ${{ matrix.target }} ${{ matrix.extra-args }}
         env:
