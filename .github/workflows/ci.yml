@@ -251,7 +251,7 @@ jobs:
         if: startsWith(github.ref, 'refs/heads/dev')
         run: |
           gh release delete latest --cleanup-tag --yes --repo $GITHUB_REPOSITORY || true
-          # Deleted latest tag and push it
+          # Move latest tag to current commit locally
           git tag -d latest || true
           # Create local tag
           git tag latest

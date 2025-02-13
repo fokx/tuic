@@ -68,9 +68,7 @@ impl Connection {
                     addr = self.inner.remote_address(),
                     user = self.auth,
                 );
-                self.close(&format!(
-                    "A serious error occurred at unidirectional stream pre-process stage {err}"
-                ));
+                self.close();
             }
         }
     }
@@ -120,9 +118,7 @@ impl Connection {
                     addr = self.inner.remote_address(),
                     user = self.auth,
                 );
-                self.close(&format!(
-                    "A serious error occurred at bidirectional stream pre-process stage {err}"
-                ));
+                self.close();
             }
         }
     }
@@ -163,9 +159,7 @@ impl Connection {
                     addr = self.inner.remote_address(),
                     user = self.auth,
                 );
-                self.close(&format!(
-                    "A serious error occurred at datagram pre-process stage {err}"
-                ));
+                self.close();
             }
         }
     }
