@@ -14,7 +14,7 @@ concurrency:
 env:
   PACKAGE: "tuic-server"
   PACKAGE2: "tuic-client"
-  RUST_TOOLCHAIN: "nightly-2024-12-29"
+  RUST_TOOLCHAIN: "nightly-2025-02-12"
 
 jobs:
   compile:
@@ -32,7 +32,7 @@ jobs:
           #   target: x86_64-unknown-linux-gnu
           #   release-name: x86_64-linux
           #   toolchain: stable
-          #   cross: true
+          #   tool: cross
           #   postfix: ""
           #   extra-args: ""
           #   components: ""
@@ -122,6 +122,8 @@ jobs:
             target: x86_64-unknown-freebsd
             release-name: x86_64-freebsd
             tool: cross
+            skip-test: true
+            extra-args: "--no-default-features --features ring"
           # RISC-V
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
@@ -133,6 +135,7 @@ jobs:
             target: loongarch64-unknown-linux-gnu
             release-name: loongarch64-linux
             tool: cross
+            extra-args: "--no-default-features --features ring"
 
           # Linux mips: tier-3, pity
           # Windows gnu: tokio dont work
@@ -158,15 +161,23 @@ jobs:
           target: ${{ matrix.target }}
           components: ${{ matrix.components || 'rustfmt, clippy' }}
 
+      - name: Install rust targets & cross
+        if: matrix.tool == 'cross'
+        run: |
+          rustup target add ${TARGET}
+          rm -f ~/.cargo/bin/cross*
+          cargo install cross --git https://github.com/cross-rs/cross
+        env:
+          TARGET: ${{ matrix.target }}
+
       - name: Cargo fmt
-        uses: clechasseur/rs-cargo@v2
+        uses: clechasseur/rs-cargo@v3
         with:
-          tool: ${{ matrix.tool }}
           command: fmt
           args: --all -- --check
 
       - name: Cargo clippy
-        uses: clechasseur/rs-cargo@v2
+        uses: clechasseur/rs-cargo@v3
         with:
           tool: ${{ matrix.tool }}
           command: clippy
@@ -175,7 +186,7 @@ jobs:
           RUSTFLAGS: ${{ matrix.rustflags }}
 
       - name: Cargo test
-        uses: clechasseur/rs-cargo@v2
+        uses: clechasseur/rs-cargo@v3
         if: ${{ !matrix.skip-test }}
         with:
           tool: ${{ matrix.tool }}
@@ -186,7 +197,7 @@ jobs:
           RUSTFLAGS: ${{ matrix.rustflags }}
 
       - name: Cargo build
-        uses: clechasseur/rs-cargo@v2
+        uses: clechasseur/rs-cargo@v3
         with:
           tool: ${{ matrix.tool }}
           command: build

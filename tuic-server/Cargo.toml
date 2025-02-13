@@ -13,7 +13,7 @@ repository.workspace = true
 
 [features]
 default = ["aws-lc-rs"]
-ring = ["rustls/ring", "rcgen/ring", "quinn/rustls-ring"]
+ring = ["rustls/ring", "rcgen/ring", "quinn/rustls-ring", ]
 aws-lc-rs = ["rustls/aws-lc-rs", "rcgen/aws_lc_rs", "quinn/rustls-aws-lc-rs"]
 jemallocator = ["tikv-jemallocator"]
 
