@@ -38,4 +38,5 @@ tokio-util = { version = "0.7.13", default-features = false, features = ["compat
 tuic = { path = "../tuic", default-features = false }
 tuic-quinn = { path = "../tuic-quinn" }
 uuid = { version = "1.13.1", default-features = false, features = ["serde", "std"] }
-
+dotenvy = "0.15.7"
+dotenvy_macro = "0.15.7"

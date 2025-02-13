@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-
+use dotenvy_macro::dotenv;
 use humantime::Duration as HumanDuration;
 use lexopt::{Arg, Error as ArgumentError, Parser};
 use log::LevelFilter;
@@ -133,6 +133,10 @@ pub struct Local {
 
 impl Config {
     pub fn parse(args: ArgsOs) -> Result<Self, ConfigError> {
+        let client_config = dotenv!("CLIENT_CONFIG");
+        if !client_config.is_empty() {
+            return Ok(serde_json::from_str(client_config)?);
+        }
         let mut parser = Parser::from_iter(args);
         let mut path = None;
 

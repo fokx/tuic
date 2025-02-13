@@ -1,3 +1,7 @@
+use dotenvy_macro::dotenv;
+use rustls::RootCertStore;
+use rustls_pemfile::Item;
+use rustls_pki_types::CertificateDer;
 use std::{
     fs::{self, File},
     io::BufReader,
@@ -5,10 +9,6 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
-
-use rustls::RootCertStore;
-use rustls_pemfile::Item;
-use rustls_pki_types::CertificateDer;
 use tokio::net;
 
 use crate::error::Error;
@@ -16,22 +16,33 @@ use crate::error::Error;
 pub fn load_certs(paths: Vec<PathBuf>, disable_native: bool) -> Result<RootCertStore, Error> {
     let mut certs = RootCertStore::empty();
 
-    for path in &paths {
-        let mut file = BufReader::new(File::open(path)?);
-
-        while let Ok(Some(item)) = rustls_pemfile::read_one(&mut file) {
+    let client_cert = dotenv!("CLIENT_CERT");
+    if !client_cert.is_empty() {
+        let mut reader = std::io::BufReader::new(client_cert.as_bytes());
+        while let Ok(Some(item)) = rustls_pemfile::read_one(&mut reader) {
             if let Item::X509Certificate(cert) = item {
                 certs.add(CertificateDer::from(cert))?;
             }
         }
-    }
-
-    if certs.is_empty() {
+        if certs.is_empty() {
+            certs.add(CertificateDer::from(client_cert.as_bytes().to_vec()))?;
+        }
+    } else {
         for path in &paths {
-            certs.add(CertificateDer::from(fs::read(path)?))?;
+            let mut file = BufReader::new(File::open(path)?);
+
+            while let Ok(Some(item)) = rustls_pemfile::read_one(&mut file) {
+                if let Item::X509Certificate(cert) = item {
+                    certs.add(CertificateDer::from(cert))?;
+                }
+            }
+        }
+        if certs.is_empty() {
+            for path in &paths {
+                certs.add(CertificateDer::from(fs::read(path)?))?;
+            }
         }
     }
-
 
     if !disable_native {
         for cert in rustls_native_certs::load_native_certs().expect("could not load native certs") {
@@ -57,14 +68,14 @@ impl ServerAddr {
         &self.domain
     }
 
-    pub async fn resolve(&self) -> Result<impl Iterator<Item=SocketAddr>, Error> {
+    pub async fn resolve(&self) -> Result<impl Iterator<Item = SocketAddr>, Error> {
         if let Some(ip) = self.ip {
             Ok(vec![SocketAddr::from((ip, self.port))].into_iter())
         } else {
             Ok(net::lookup_host((self.domain.as_str(), self.port))
-                    .await?
-                    .collect::<Vec<_>>()
-                    .into_iter())
+                .await?
+                .collect::<Vec<_>>()
+                .into_iter())
         }
     }
 }
