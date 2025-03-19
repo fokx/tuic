@@ -19,7 +19,7 @@ mod handle_stream;
 mod handle_task;
 mod udp_session;
 
-pub const ERROR_CODE: VarInt = VarInt::from_u32(6000);
+pub const ERROR_CODE: VarInt = VarInt::from_u32(0);
 pub const INIT_CONCURRENT_STREAMS: u32 = 32;
 
 #[derive(Clone)]
@@ -158,7 +158,7 @@ impl Connection {
                     id = self.id(),
                     addr = self.inner.remote_address(),
                 );
-                self.close("Authentication error");
+                self.close();
             }
         }
     }
@@ -192,7 +192,7 @@ impl Connection {
         self.inner.close_reason().is_some()
     }
 
-    fn close(&self, reason: &str) {
-        self.inner.close(ERROR_CODE, reason.as_bytes());
+    fn close(&self) {
+        self.inner.close(ERROR_CODE, &[]);
     }
 }

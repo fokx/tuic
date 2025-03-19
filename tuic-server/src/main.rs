@@ -2,10 +2,9 @@
 
 use std::{env, process, sync::Arc};
 
-use chrono::{Local, Offset, TimeZone};
 use config::{Config, parse_config};
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{fmt::time::LocalTime, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{old_config::ConfigError, server::Server};
 
@@ -59,20 +58,9 @@ async fn main() -> eyre::Result<()> {
         .with(
             tracing_subscriber::fmt::layer()
                 .with_target(true)
-                .with_timer(tracing_subscriber::fmt::time::OffsetTime::new(
-                    time::UtcOffset::from_whole_seconds(
-                        Local
-                            .timestamp_opt(0, 0)
-                            .unwrap()
-                            .offset()
-                            .fix()
-                            .local_minus_utc(),
-                    )
-                    .unwrap_or(time::UtcOffset::UTC),
-                    time::macros::format_description!(
-                        "[year repr:last_two]-[month]-[day] [hour]:[minute]:[second]"
-                    ),
-                )),
+                .with_timer(LocalTime::new(time::macros::format_description!(
+                    "[year repr:last_two]-[month]-[day] [hour]:[minute]:[second]"
+                ))),
         )
         .try_init()?;
     tokio::spawn(async move {
