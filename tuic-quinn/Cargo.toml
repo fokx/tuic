@@ -12,9 +12,9 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/EAimTY/tuic"
 
 [dependencies]
-bytes = { version = "1.10.0", default-features = false, features = ["std"] }
+bytes = { version = "1.10.1", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.31", default-features = false, features = ["io", "std"] }
-quinn = { version = "0.11.6", features = ["futures-io"] }
-thiserror = { version = "2.0.11", default-features = false }
+quinn = { version = "0.11.8", features = ["futures-io"] }
+thiserror = { version = "2.0.12", default-features = false }
 tuic = { path = "../tuic", default-features = false, features = ["async_marshal", "marshal", "model"] }
-uuid = { version = "1.13.1", default-features = false, features = ["std"] }
+uuid = { version = "1.17.0", default-features = false, features = ["std"] }
