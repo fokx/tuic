@@ -81,11 +81,11 @@ impl Server {
             let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))
                     .map_err(|err| Error::Socket("failed to create endpoint UDP socket", err))?;
 
-            if let Some(dual_stack) = cfg.dual_stack {
-                socket.set_only_v6(!dual_stack).map_err(|err| {
-                    Error::Socket("endpoint dual-stack socket setting error", err)
-                })?;
-            }
+            // if let Some(dual_stack) = cfg.dual_stack {
+            //     socket.set_only_v6(!dual_stack).map_err(|err| {
+            //         Error::Socket("endpoint dual-stack socket setting error", err)
+            //     })?;
+            // }
 
             socket
                     .bind(&SockAddr::from(cfg.server))
