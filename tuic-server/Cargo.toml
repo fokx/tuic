@@ -12,25 +12,25 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/EAimTY/tuic"
 
 [dependencies]
-bytes = { version = "1.10.0", default-features = false, features = ["std"] }
+bytes = { version = "1.10.1", default-features = false, features = ["std"] }
 crossbeam-utils = { version = "0.8.21", default-features = false, features = ["std"] }
-env_logger = { version = "0.11.6", default-features = false, features = ["humantime"] }
-humantime = { version = "2.1.0", default-features = false }
-lexopt = { version = "0.3.0", default-features = false }
-log = { version = "0.4.25", default-features = false, features = ["serde", "std"] }
+env_logger = { version = "0.11.8", default-features = false, features = ["humantime"] }
+humantime = { version = "2.2.0", default-features = false }
+lexopt = { version = "0.3.1", default-features = false }
+log = { version = "0.4.27", default-features = false, features = ["serde", "std"] }
 parking_lot = { version = "0.12.3", default-features = false }
-quinn = { version = "0.11.6", features = ["futures-io", "runtime-tokio"] }
-quinn-proto = { version = "0.11.9" }
+quinn = { version = "0.11.8", features = ["futures-io", "runtime-tokio"] }
+quinn-proto = { version = "0.11.12" }
 register-count = { version = "0.1.0", default-features = false, features = ["std"] }
 rustls = { version = "0.23.19" }
 rustls-pemfile = { version = "2.2.0" }
-rustls-pki-types = "1.11.0"
-serde = { version = "1.0.217", default-features = false, features = ["derive", "std"] }
-serde_json = { version = "1.0.138", default-features = false, features = ["std"] }
-socket2 = { version = "0.5.8", default-features = false }
-thiserror = { version = "2.0.11", default-features = false }
-tokio = { version = "1.38.1", default-features = false, features = ["io-util", "macros", "net", "parking_lot", "rt-multi-thread", "time"] }
+rustls-pki-types = "1.12.0"
+serde = { version = "1.0.219", default-features = false, features = ["derive", "std"] }
+serde_json = { version = "1.0.140", default-features = false, features = ["std"] }
+socket2 = { version = "0.5.9", default-features = false }
+thiserror = { version = "2.0.12", default-features = false }
+tokio = { version = "1.38.2", default-features = false, features = ["io-util", "macros", "net", "parking_lot", "rt-multi-thread", "time"] }
 tokio-util = { version = "0.7.11", default-features = false, features = ["compat"] }
 tuic = { path = "../tuic", default-features = false }
 tuic-quinn = { path = "../tuic-quinn" }
-uuid = { version = "1.13.1", default-features = false, features = ["serde", "std"] }
+uuid = { version = "1.17.0", default-features = false, features = ["serde", "std"] }
