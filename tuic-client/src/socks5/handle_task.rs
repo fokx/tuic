@@ -158,22 +158,29 @@ impl Server {
             Address::DomainAddress(domain, port) => TuicAddress::DomainAddress(String::from_utf8_lossy(&domain).as_ref().to_string(), port),
             Address::SocketAddress(addr) => TuicAddress::SocketAddress(addr),
         };
+        let whitelist_domains = dotenv!("WHITELISTED_DOMAINS");
         let mut target_in_whitelist = false;
-        /* this stealthy tuic client should only proxy requests to target
-        the server should also ensure the client cannot access websites other than target,
-        to avoid malicious use of the server.
-        */
-        let white_listed_ports: Vec<&str> = dotenv!("WHITELISTED_PORTS").split(",").collect();
-        if let TuicAddress::DomainAddress(domain, port) = &target_addr {
-            for whitelisted_domain in dotenv!("WHITELISTED_DOMAINS").split(",") {
-                if domain == whitelisted_domain || domain.ends_with(&format!(".{}", whitelisted_domain)) {
-                    if white_listed_ports.contains(&&*port.to_string()) {
-                        target_in_whitelist = true;
-                        break;
+
+        if whitelist_domains.is_empty() {
+            target_in_whitelist = true;
+        } else {
+            /* this stealthy tuic client should only proxy requests to target
+            the server should also ensure the client cannot access websites other than target,
+            to avoid malicious use of the server.
+            */
+            let white_listed_ports: Vec<&str> = dotenv!("WHITELISTED_PORTS").split(",").collect();
+            if let TuicAddress::DomainAddress(domain, port) = &target_addr {
+                for whitelisted_domain in dotenv!("WHITELISTED_DOMAINS").split(",") {
+                    if domain == whitelisted_domain || domain.ends_with(&format!(".{}", whitelisted_domain)) {
+                        if white_listed_ports.contains(&&*port.to_string()) {
+                            target_in_whitelist = true;
+                            break;
+                        }
                     }
                 }
             }
         }
+
         if !target_in_whitelist {
             let target_addr_str = format!("{}", target_addr);
             // create a stream directly to target_addr

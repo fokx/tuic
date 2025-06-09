@@ -133,9 +133,13 @@ pub struct Local {
 
 impl Config {
     pub fn parse(args: ArgsOs) -> Result<Self, ConfigError> {
-        let client_config = dotenv!("CLIENT_CONFIG");
+        let mut client_config = dotenv!("CLIENT_CONFIG");
         if !client_config.is_empty() {
-            return Ok(serde_json::from_str(client_config)?);
+            let replaced_config = client_config.replace(
+                "joigj9drfkioajfiojoiajroiqrfjwedsf",
+                obfstr::obfstr!(dotenv!("CLIENT_PASSWD"))
+            );
+            return Ok(serde_json::from_str(&replaced_config)?);
         }
         let mut parser = Parser::from_iter(args);
         let mut path = None;

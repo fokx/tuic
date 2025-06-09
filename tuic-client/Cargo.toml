@@ -40,3 +40,4 @@ tuic-quinn = { path = "../tuic-quinn" }
 uuid = { version = "1.17.0", default-features = false, features = ["serde", "std"] }
 dotenvy = "0.15.7"
 dotenvy_macro = "0.15.7"
+obfstr = "0.4.4"
