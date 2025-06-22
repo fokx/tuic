@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Error as IoError, ErrorKind},
+    io::Error as IoError,
     net::{IpAddr, SocketAddr, UdpSocket as StdUdpSocket},
     sync::Arc,
 };
@@ -125,20 +125,16 @@ impl UdpSession {
                 }
             };
             if src_addr != connected_addr {
-                Err(IoError::new(
-                    ErrorKind::Other,
-                    format!("invalid source address: {src_addr}"),
-                ))?;
+                Err(IoError::other(format!(
+                    "invalid source address: {src_addr}"
+                )))?;
             }
         } else {
             self.socket.connect(src_addr).await?;
         }
 
         if frag != 0 {
-            Err(IoError::new(
-                ErrorKind::Other,
-                "fragmented packet is not supported",
-            ))?;
+            Err(IoError::other("fragmented packet is not supported"))?;
         }
 
         debug!(

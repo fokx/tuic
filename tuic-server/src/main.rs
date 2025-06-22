@@ -31,7 +31,6 @@ struct AppContext {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    std::env::set_var("RUST_BACKTRACE", "1");
     let cfg = match parse_config(env::args_os()).await {
         Ok(cfg) => cfg,
         Err(ConfigError::Version(msg) | ConfigError::Help(msg)) => {
