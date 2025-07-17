@@ -1,6 +1,7 @@
 use std::{
     net::{SocketAddr, UdpSocket as StdUdpSocket},
     sync::Arc,
+    time::Duration,
 };
 
 use eyre::Context;
@@ -40,8 +41,12 @@ impl Server {
                 .with_no_client_auth()
                 .with_single_cert(vec![cert_der], PrivateKeyDer::Pkcs8(priv_key))?;
         } else {
-            let cert_resolver =
-                CertResolver::new(&ctx.cfg.tls.certificate, &ctx.cfg.tls.private_key).await?;
+            let cert_resolver = CertResolver::new(
+                &ctx.cfg.tls.certificate,
+                &ctx.cfg.tls.private_key,
+                Duration::from_secs(10),
+            )
+            .await?;
 
             crypto = RustlsServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_no_client_auth()

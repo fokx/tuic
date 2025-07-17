@@ -1,10 +1,11 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     str::FromStr,
+    time::Duration,
 };
 
 use educe::Educe;
-use notify::{EventKind, RecommendedWatcher, Watcher};
+use notify::{RecommendedWatcher, Watcher};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
@@ -70,20 +71,19 @@ where
     }
 }
 
-pub async fn async_watcher() -> eyre::Result<(RecommendedWatcher, broadcast::Receiver<()>)> {
+pub async fn async_watcher(
+    interval: Duration,
+) -> eyre::Result<(RecommendedWatcher, broadcast::Receiver<()>)> {
     let (tx, rx) = broadcast::channel(1);
+    let config = notify::Config::default();
+    config.with_poll_interval(interval);
     let watcher = RecommendedWatcher::new(
         move |res: Result<notify::Event, notify::Error>| {
-            if let Ok(event) = res {
-                match event.kind {
-                    EventKind::Create(_) | EventKind::Modify(_) => {
-                        tx.send(()).unwrap();
-                    }
-                    _ => {}
-                }
+            if res.is_ok() {
+                tx.send(()).unwrap();
             }
         },
-        notify::Config::default(),
+        config,
     )?;
 
     Ok((watcher, rx))
