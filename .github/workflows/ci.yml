@@ -14,7 +14,7 @@ concurrency:
 env:
   PACKAGE: "tuic-server"
   PACKAGE2: "tuic-client"
-  RUST_TOOLCHAIN: "nightly-2025-06-01"
+  RUST_TOOLCHAIN: "nightly-2025-07-01"
 
 jobs:
   compile:

@@ -1,5 +1,3 @@
-#![feature(let_chains, trivial_bounds)]
-
 use std::{env, process, sync::Arc};
 
 use config::{Config, parse_config};

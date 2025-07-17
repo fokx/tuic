@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 use std::{env, process, str::FromStr};
 
 use chrono::{Offset, TimeZone};

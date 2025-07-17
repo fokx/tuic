@@ -8,6 +8,7 @@ use std::{
     },
 };
 
+use arc_swap::ArcSwap;
 use axum::{
     Json, Router,
     extract::State,
@@ -19,7 +20,6 @@ use axum_extra::{
     headers::{Authorization, authorization::Bearer},
 };
 use chashmap::CHashMap;
-use lateinit::LateInit;
 use quinn::{Connection as QuinnConnection, VarInt};
 use serde_json::json;
 use tracing::warn;
@@ -27,9 +27,11 @@ use uuid::Uuid;
 
 use crate::AppContext;
 
-static ONLINE_COUNTER: LateInit<HashMap<Uuid, AtomicU64>> = LateInit::new();
+static ONLINE_COUNTER: LazyLock<ArcSwap<HashMap<Uuid, AtomicU64>>> =
+    LazyLock::new(ArcSwap::default);
 static ONLINE_CLIENTS: LazyLock<CHashMap<Uuid, HashSet<QuicClient>>> = LazyLock::new(CHashMap::new);
-static TRAFFIC_STATS: LateInit<HashMap<Uuid, (AtomicU64, AtomicU64)>> = LateInit::new(); // (tx, rx)
+static TRAFFIC_STATS: LazyLock<ArcSwap<HashMap<Uuid, (AtomicU64, AtomicU64)>>> =
+    LazyLock::new(ArcSwap::default); // (tx, rx)
 
 #[derive(Clone)]
 struct QuicClient(QuinnConnection);
@@ -68,10 +70,9 @@ pub async fn start(ctx: Arc<AppContext>) {
         // TODO use persist
         traffic.insert(user.to_owned(), (AtomicU64::new(0), AtomicU64::new(0)));
     }
-    unsafe {
-        ONLINE_COUNTER.init(online);
-        TRAFFIC_STATS.init(traffic);
-    }
+
+    ONLINE_COUNTER.swap(Arc::new(online));
+    TRAFFIC_STATS.swap(Arc::new(traffic));
 
     let restful = ctx.cfg.restful.as_ref().unwrap();
     let addr = restful.addr;
@@ -121,7 +122,7 @@ async fn list_online(
         return (StatusCode::UNAUTHORIZED, Json(HashMap::new()));
     }
     let mut result = HashMap::new();
-    for (user, count) in ONLINE_COUNTER.iter() {
+    for (user, count) in ONLINE_COUNTER.load().iter() {
         let count = count.load(Ordering::Relaxed);
         if count != 0 {
             result.insert(user.to_owned(), count);
@@ -165,7 +166,7 @@ async fn list_traffic(
         return (StatusCode::UNAUTHORIZED, Json(HashMap::new()));
     }
     let mut result = HashMap::new();
-    for (uuid, (tx, rx)) in TRAFFIC_STATS.iter() {
+    for (uuid, (tx, rx)) in TRAFFIC_STATS.load().iter() {
         let tx = tx.load(Ordering::Relaxed);
         let rx = rx.load(Ordering::Relaxed);
         if tx != 0 || rx != 0 {
@@ -188,7 +189,7 @@ async fn reset_traffic(
         return (StatusCode::UNAUTHORIZED, Json(HashMap::new()));
     }
     let mut result = HashMap::new();
-    for (uuid, (tx, rx)) in TRAFFIC_STATS.iter() {
+    for (uuid, (tx, rx)) in TRAFFIC_STATS.load().iter() {
         let tx = tx.swap(0, Ordering::Relaxed);
         let rx = rx.swap(0, Ordering::Relaxed);
         if tx != 0 || rx != 0 {
@@ -205,6 +206,7 @@ pub async fn client_connect(ctx: &AppContext, uuid: &Uuid, conn: QuinnConnection
     }
     let cfg = ctx.cfg.restful.as_ref().unwrap();
     let current = ONLINE_COUNTER
+        .load()
         .get(uuid)
         .expect("Authorized UUID not present in users table")
         .fetch_add(1, Ordering::Release);
@@ -226,6 +228,7 @@ pub async fn client_disconnect(ctx: &AppContext, uuid: &Uuid, conn: QuinnConnect
         return;
     }
     ONLINE_COUNTER
+        .load()
         .get(uuid)
         .expect("Authorized UUID not present in users table")
         .fetch_sub(1, Ordering::SeqCst);
@@ -238,7 +241,7 @@ pub fn traffic_tx(ctx: &AppContext, uuid: &Uuid, size: u64) {
     if ctx.cfg.restful.is_none() {
         return;
     }
-    if let Some((tx, _)) = TRAFFIC_STATS.get(uuid) {
+    if let Some((tx, _)) = TRAFFIC_STATS.load().get(uuid) {
         tx.fetch_add(size, Ordering::SeqCst);
     }
 }
@@ -247,7 +250,7 @@ pub fn traffic_rx(ctx: &AppContext, uuid: &Uuid, size: u64) {
     if ctx.cfg.restful.is_none() {
         return;
     }
-    if let Some((__, rx)) = TRAFFIC_STATS.get(uuid) {
+    if let Some((__, rx)) = TRAFFIC_STATS.load().get(uuid) {
         rx.fetch_add(size, Ordering::SeqCst);
     }
 }
