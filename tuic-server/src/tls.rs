@@ -1,5 +1,8 @@
 use std::{
-    ops::Deref, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::Duration
+    ops::Deref,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+    time::Duration,
 };
 
 use arc_swap::ArcSwap;
@@ -18,7 +21,7 @@ pub struct CertResolver {
     cert_path: PathBuf,
     key_path: PathBuf,
     cert_key: RwLock<Arc<CertifiedKey>>,
-    hash: ArcSwap<[u8;32]>,
+    hash: ArcSwap<[u8; 32]>,
 }
 impl CertResolver {
     pub async fn new(cert_path: &Path, key_path: &Path, interval: Duration) -> Result<Arc<Self>> {
@@ -28,7 +31,7 @@ impl CertResolver {
             cert_path: cert_path.to_owned(),
             key_path: key_path.to_owned(),
             cert_key: RwLock::new(cert_key),
-            hash: ArcSwap::new(Arc::new(hash))
+            hash: ArcSwap::new(Arc::new(hash)),
         });
         // Start file watcher in background
         let resolver_clone = resolver.clone();
@@ -64,11 +67,12 @@ impl CertResolver {
         *guard = new_cert_key;
         Ok(())
     }
-    async fn calc_hash(cert_path: &Path, key_path: &Path) -> Result<[u8;32]> {
+
+    async fn calc_hash(cert_path: &Path, key_path: &Path) -> Result<[u8; 32]> {
         let mut hasher = Sha256::new();
         hasher.update(fs::read(cert_path).await?);
         hasher.update(fs::read(key_path).await?);
-        let result: [u8;32] = hasher.finalize().into();
+        let result: [u8; 32] = hasher.finalize().into();
         Ok(result)
     }
 }
@@ -164,18 +168,15 @@ mod tests {
         Ok((cert_pem, private_key_pem))
     }
 
-    // 生成测试证书和私钥
     fn generate_test_cert_der() -> eyre::Result<(Vec<u8>, Vec<u8>)> {
         let mut params = CertificateParams::default();
 
-        // 设置主题可分辨名称（DN）
         let mut distinguished_name = rcgen::DistinguishedName::new();
         distinguished_name.push(DnType::CommonName, "localhost");
         distinguished_name.push(DnType::OrganizationName, "My Company");
         distinguished_name.push(DnType::CountryName, "US");
         params.distinguished_name = distinguished_name;
 
-        // 添加 SAN（主题备用名称）
         params.subject_alt_names = vec![
             SanType::DnsName(Ia5String::try_from("localhost".to_string())?),
             SanType::IpAddress("127.0.0.1".parse()?),
