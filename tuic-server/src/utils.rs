@@ -1,13 +1,10 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     str::FromStr,
-    time::Duration,
 };
 
 use educe::Educe;
-use notify::{RecommendedWatcher, Watcher};
 use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
 
 #[derive(Clone, Copy)]
 pub enum UdpRelayMode {
@@ -69,22 +66,4 @@ where
             }
         }
     }
-}
-
-pub async fn async_watcher(
-    interval: Duration,
-) -> eyre::Result<(RecommendedWatcher, broadcast::Receiver<()>)> {
-    let (tx, rx) = broadcast::channel(1);
-    let config = notify::Config::default();
-    config.with_poll_interval(interval);
-    let watcher = RecommendedWatcher::new(
-        move |res: Result<notify::Event, notify::Error>| {
-            if res.is_ok() {
-                tx.send(()).unwrap();
-            }
-        },
-        config,
-    )?;
-
-    Ok((watcher, rx))
 }

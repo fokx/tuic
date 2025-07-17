@@ -1,34 +1,34 @@
 use std::{
-    ops::Deref,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-    time::Duration,
+    ops::Deref, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::Duration
 };
 
+use arc_swap::ArcSwap;
 use eyre::{Context, Result};
-use notify::{RecursiveMode, Watcher as _};
 use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer},
     server::{ClientHello, ResolvesServerCert},
     sign::CertifiedKey,
 };
-use tracing::{debug, warn};
-
-use crate::utils;
+use sha2::{Digest, Sha256};
+use tokio::fs;
+use tracing::warn;
 
 #[derive(Debug)]
 pub struct CertResolver {
     cert_path: PathBuf,
     key_path: PathBuf,
     cert_key: RwLock<Arc<CertifiedKey>>,
+    hash: ArcSwap<[u8;32]>,
 }
 impl CertResolver {
     pub async fn new(cert_path: &Path, key_path: &Path, interval: Duration) -> Result<Arc<Self>> {
         let cert_key = load_cert_key(cert_path, key_path).await?;
+        let hash = Self::calc_hash(cert_path, key_path).await?;
         let resolver = Arc::new(Self {
             cert_path: cert_path.to_owned(),
             key_path: key_path.to_owned(),
             cert_key: RwLock::new(cert_key),
+            hash: ArcSwap::new(Arc::new(hash))
         });
         // Start file watcher in background
         let resolver_clone = resolver.clone();
@@ -41,27 +41,18 @@ impl CertResolver {
     }
 
     async fn start_watch(&self, interval: Duration) -> Result<()> {
-        let (mut watcher, mut rx) = utils::async_watcher(interval).await?;
-
-        watcher.watch(&self.cert_path, RecursiveMode::NonRecursive)?;
-        watcher.watch(&self.key_path, RecursiveMode::NonRecursive)?;
+        let mut interval = tokio::time::interval(interval);
         loop {
-            let res = rx.recv().await;
-            match res {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("File watcher error: {e}");
-                    break;
+            interval.tick().await;
+            let hash = Self::calc_hash(&self.cert_path, &self.key_path).await?;
+
+            if !self.hash.load().deref().deref().eq(&hash) {
+                match self.reload_cert_key().await {
+                    Ok(_) => warn!("Successfully reloaded TLS certificate and key"),
+                    Err(e) => warn!("Failed to reload TLS certificate and key: {e}"),
                 }
-            };
-            debug!("File system event received");
-            match self.reload_cert_key().await {
-                Ok(_) => warn!("Successfully reloaded TLS certificate and key"),
-                Err(e) => warn!("Failed to reload TLS certificate and key: {e}"),
             }
         }
-
-        Ok(())
     }
 
     async fn reload_cert_key(&self) -> Result<()> {
@@ -73,6 +64,13 @@ impl CertResolver {
         *guard = new_cert_key;
         Ok(())
     }
+    async fn calc_hash(cert_path: &Path, key_path: &Path) -> Result<[u8;32]> {
+        let mut hasher = Sha256::new();
+        hasher.update(fs::read(cert_path).await?);
+        hasher.update(fs::read(key_path).await?);
+        let result: [u8;32] = hasher.finalize().into();
+        Ok(result)
+    }
 }
 impl ResolvesServerCert for CertResolver {
     fn resolve(&self, _: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
@@ -81,9 +79,8 @@ impl ResolvesServerCert for CertResolver {
 }
 
 async fn load_cert_key(cert_path: &Path, key_path: &Path) -> eyre::Result<Arc<CertifiedKey>> {
-    let (cert_chain, der) = tokio::join!(load_cert_chain(cert_path), load_priv_key(key_path),);
-    let cert_chain = cert_chain?;
-    let der = der?;
+    let cert_chain = load_cert_chain(cert_path).await?;
+    let der = load_priv_key(key_path).await?;
     #[cfg(feature = "aws-lc-rs")]
     let key = rustls::crypto::aws_lc_rs::sign::any_supported_type(&der)
         .context("Unsupported private key type")?;
@@ -138,7 +135,7 @@ mod tests {
 
     use rcgen::{CertificateParams, DnType, Ia5String, KeyPair, SanType};
     use tempfile::{NamedTempFile, tempdir};
-    use tokio::time::{Duration, sleep};
+    use tokio::time::Duration;
 
     use super::*;
 
@@ -160,10 +157,8 @@ mod tests {
 
         let cert = params.self_signed(&key_pair)?;
 
-        // 获取PEM格式的私钥
         let private_key_pem = key_pair.serialize_pem();
 
-        // 获取PEM格式的证书
         let cert_pem = cert.pem();
 
         Ok((cert_pem, private_key_pem))
@@ -196,21 +191,17 @@ mod tests {
         Ok((cert_der.to_vec(), private_key_der))
     }
 
-    // 创建临时证书文件
     async fn create_temp_cert_file(
         cert_data: &[u8],
         key_data: &[u8],
     ) -> (NamedTempFile, NamedTempFile) {
-        // 创建证书文件
         let mut cert_file = NamedTempFile::new().unwrap();
         cert_file.write_all(cert_data).unwrap();
         cert_file.as_file().sync_all().unwrap();
 
-        // 创建私钥文件
         let mut key_file = NamedTempFile::new().unwrap();
         key_file.write_all(key_data).unwrap();
         key_file.as_file().sync_all().unwrap();
-        dbg!(key_file.as_file());
         (cert_file, key_file)
     }
 
@@ -278,7 +269,6 @@ mod tests {
         let cert_path = temp_dir.path().join("cert.pem");
         let key_path = temp_dir.path().join("key.pem");
 
-        // 初始文件
         let (cert_pem, key_pem) = generate_test_cert()?;
         tokio::fs::write(&cert_path, &cert_pem.as_bytes())
             .await
@@ -287,7 +277,7 @@ mod tests {
             .await
             .unwrap();
 
-        let resolver = CertResolver::new(&cert_path, &key_path, Duration::from_secs(1))
+        let resolver = CertResolver::new(&cert_path, &key_path, Duration::from_micros(100))
             .await
             .unwrap();
 
@@ -300,13 +290,13 @@ mod tests {
         tokio::fs::write(&cert_path, &new_cert_pem).await.unwrap();
         tokio::fs::write(&key_path, &new_key_pem).await.unwrap();
 
-        sleep(Duration::from_secs(2)).await;
+        tokio::time::sleep(Duration::from_secs(5)).await;
 
         let updated_fingerprint = {
             let key = resolver.cert_key.read().unwrap();
             key.cert[0].as_ref().to_vec()
         };
-
+        assert_ne!(cert_pem, new_cert_pem);
         assert_ne!(initial_fingerprint, updated_fingerprint);
         Ok(())
     }
