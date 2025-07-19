@@ -48,8 +48,7 @@ impl CertResolver {
         loop {
             interval.tick().await;
             let hash = Self::calc_hash(&self.cert_path, &self.key_path).await?;
-
-            if !self.hash.load().deref().deref().eq(&hash) {
+            if &hash != self.hash.swap(hash.into()).deref() {
                 match self.reload_cert_key().await {
                     Ok(_) => warn!("Successfully reloaded TLS certificate and key"),
                     Err(e) => warn!("Failed to reload TLS certificate and key: {e}"),
