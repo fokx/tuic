@@ -2588,6 +2588,7 @@ dependencies = [
  "lexopt",
  "once_cell",
  "quinn",
+ "rand",
  "register-count",
  "rustls",
  "rustls-native-certs",

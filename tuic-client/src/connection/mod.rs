@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Context;
 use crossbeam_utils::atomic::AtomicCell;
+pub use manager::ConnectionManager;
 use once_cell::sync::OnceCell;
 use quinn::{
     ClientConfig, Connection as QuinnConnection, Endpoint as QuinnEndpoint, EndpointConfig,
@@ -27,16 +28,19 @@ use tuic_quinn::{Connection as Model, side};
 use uuid::Uuid;
 
 use crate::{
-    config::Relay,
+    config::{MultiPathConfig, Relay},
     error::Error,
     utils::{self, CongestionControl, ServerAddr, UdpRelayMode},
 };
 
 mod handle_stream;
 mod handle_task;
+mod load_balancer;
+mod manager;
 
 static ENDPOINT: OnceCell<AsyncRwLock<Endpoint>> = OnceCell::new();
 static CONNECTION: AsyncOnceCell<AsyncRwLock<Connection>> = AsyncOnceCell::const_new();
+static CONNECTION_MANAGER: OnceCell<AsyncRwLock<ConnectionManager>> = OnceCell::new();
 static TIMEOUT: AtomicCell<Duration> = AtomicCell::new(Duration::from_secs(0));
 
 pub const ERROR_CODE: VarInt = VarInt::from_u32(0);
@@ -56,6 +60,33 @@ pub struct Connection {
 }
 
 impl Connection {
+    pub async fn set_multi_path_config(
+        relays: Vec<Relay>,
+        multi_path_config: MultiPathConfig,
+    ) -> Result<(), Error> {
+        let manager = ConnectionManager::new(relays, multi_path_config).await?;
+        warn!("manager created");
+        // Store the manager globally for use in get_conn
+        CONNECTION_MANAGER
+            .set(AsyncRwLock::new(manager))
+            .map_err(|_| "connection manager already initialized")
+            .unwrap();
+
+        // Set timeout from the first relay's configuration
+        if let Some(first_relay) = CONNECTION_MANAGER
+            .get()
+            .unwrap()
+            .read()
+            .await
+            .get_relays()
+            .first()
+        {
+            TIMEOUT.store(first_relay.timeout);
+        }
+
+        Ok(())
+    }
+
     pub async fn set_config(cfg: Relay) -> Result<(), Error> {
         let certs = utils::load_certs(cfg.certificates, cfg.disable_native_certs)?;
 
@@ -214,6 +245,16 @@ impl Connection {
     }
 
     pub async fn get_conn() -> Result<Connection, Error> {
+        // Check if we have a multi-path connection manager
+        if let Some(manager_lock) = CONNECTION_MANAGER.get() {
+            let manager = manager_lock.read().await;
+            let conn = time::timeout(TIMEOUT.load(), manager.get_connection())
+                .await
+                .map_err(|_| Error::Timeout)??;
+            return Ok(conn);
+        }
+
+        // Fall back to single-connection mode
         let try_init_conn = async {
             ENDPOINT
                 .get()
@@ -308,7 +349,7 @@ impl Connection {
             };
         };
 
-        warn!("[relay] connection error: {err}");
+        warn!("[relay] connection error: {0} {err}", self.uuid);
     }
 
     fn is_closed(&self) -> bool {
