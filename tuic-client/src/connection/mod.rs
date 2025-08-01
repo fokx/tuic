@@ -210,6 +210,10 @@ impl Connection {
 
         TIMEOUT.store(cfg.timeout);
 
+        // Start the health check task
+        tokio::spawn(Connection::health_check());
+        info!("[relay] health check task started (5-second interval)");
+
         Ok(())
     }
 

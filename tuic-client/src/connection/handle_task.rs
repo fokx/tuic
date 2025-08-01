@@ -105,6 +105,87 @@ impl Connection {
         }
     }
 
+    pub async fn health_check() {
+        loop {
+            time::sleep(Duration::from_secs(5)).await;
+
+            // Perform health check with 5-second timeout
+            let health_check_result = time::timeout(Duration::from_secs(5), async {
+                match Connection::get_conn().await {
+                    Ok(conn) => {
+                        if conn.is_closed() {
+                            return Err("Connection is closed");
+                        }
+
+                        // Try to perform a simple operation to test connection health
+                        // We'll use the heartbeat mechanism as a health check
+                        match conn.model.heartbeat().await {
+                            Ok(()) => {
+                                debug!("[relay] [health_check] connection healthy");
+                                Ok(())
+                            }
+                            Err(err) => {
+                                warn!("[relay] [health_check] heartbeat failed: {err}");
+                                Err("Heartbeat failed")
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        warn!("[relay] [health_check] failed to get connection: {err}");
+                        Err("Failed to get connection")
+                    }
+                }
+            })
+            .await;
+
+            match health_check_result {
+                Ok(Ok(())) => {
+                    // Health check passed
+                    continue;
+                }
+                Ok(Err(err)) => {
+                    warn!(
+                        "[relay] [health_check] health check failed: {err}, restarting connection"
+                    );
+                    Self::restart_connection().await;
+                }
+                Err(_) => {
+                    warn!(
+                        "[relay] [health_check] health check timed out after 5 seconds, \
+                         restarting connection"
+                    );
+                    Self::restart_connection().await;
+                }
+            }
+        }
+    }
+
+    async fn restart_connection() {
+        info!("[relay] [health_check] restarting connection due to health check failure");
+
+        // Clear the existing connection to force recreation
+        if let Some(connection_lock) = super::CONNECTION.get() {
+            let mut conn = connection_lock.write().await;
+
+            // Close the current connection if it exists
+            if !conn.is_closed() {
+                conn.conn.close(super::ERROR_CODE, b"Health check failed");
+                info!("[relay] [health_check] closed existing connection");
+            }
+
+            // Create a new connection
+            match super::ENDPOINT.get().unwrap().read().await.connect().await {
+                Ok(new_conn) => {
+                    *conn = new_conn;
+                    info!("[relay] [health_check] successfully created new connection");
+                }
+                Err(err) => {
+                    warn!("[relay] [health_check] failed to create new connection: {err}");
+                }
+            }
+        }
+    }
+
     pub async fn handle_packet(pkt: Packet) {
         let assoc_id = pkt.assoc_id();
         let pkt_id = pkt.pkt_id();
