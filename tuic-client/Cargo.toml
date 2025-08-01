@@ -62,3 +62,4 @@ chrono = "0.4"
 tracing = "0.1"
 
 tikv-jemallocator = { version = "0.6", optional = true }
+rand = "0.9.1"

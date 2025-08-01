@@ -82,6 +82,7 @@ impl FromStr for UdpRelayMode {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum CongestionControl {
     Cubic,
     NewReno,

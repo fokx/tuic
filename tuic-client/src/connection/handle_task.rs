@@ -20,13 +20,18 @@ impl Connection {
 
         debug!("[relay] [authenticate] sending authentication");
 
-        match self
-            .model
-            .authenticate(self.uuid, self.password.clone())
-            .await
+        match tokio::time::timeout(
+            Duration::from_secs(5),
+            self.model.authenticate(self.uuid, self.password.clone()),
+        )
+        .await
         {
-            Ok(()) => info!("[relay] [authenticate] {uuid}", uuid = self.uuid),
-            Err(err) => warn!("[relay] [authenticate] authentication sending error: {err}"),
+            Ok(Ok(())) => info!(
+                "[relay] [authenticate] authenticated: {uuid}",
+                uuid = self.uuid
+            ),
+            Ok(Err(err)) => warn!("[relay] [authenticate] authentication sending error: {err}"),
+            Err(_) => warn!("[relay] [authenticate] authentication timeout"),
         }
     }
 

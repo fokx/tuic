@@ -19,6 +19,32 @@ use uuid::Uuid;
 
 use crate::utils::{CongestionControl, UdpRelayMode};
 
+#[derive(Clone, Copy, Debug)]
+pub enum LoadBalancingStrategy {
+    Random,
+    WeightedRoundRobin,
+    LatencyBased,
+    LeastConnections,
+    ConsistentHashing,
+    Adaptive,
+}
+
+impl FromStr for LoadBalancingStrategy {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "weighted_round_robin" | "weighted-round-robin" => Ok(Self::WeightedRoundRobin),
+            "random" => Ok(Self::Random),
+            "latency_based" | "latency-based" => Ok(Self::LatencyBased),
+            "least_connections" | "least-connections" => Ok(Self::LeastConnections),
+            "consistent_hashing" | "consistent-hashing" => Ok(Self::ConsistentHashing),
+            "adaptive" => Ok(Self::Adaptive),
+            _ => Err("invalid load balancing strategy"),
+        }
+    }
+}
+
 const HELP_MSG: &str = r#"
 Usage tuic-client [arguments]
 
@@ -31,15 +57,119 @@ Arguments:
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    pub relay: Relay,
+    #[serde(flatten)]
+    pub relay_config: RelayConfig,
 
     pub local: Local,
+
+    #[serde(default)]
+    pub multi_path: MultiPathConfig,
 
     #[serde(default = "default::log_level")]
     pub log_level: String,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum RelayConfig {
+    #[serde(rename = "relay")]
+    Single(Relay),
+    #[serde(rename = "relays")]
+    Multiple(Vec<Relay>),
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct MultiPathConfig {
+    #[serde(
+        default = "default::multi_path::health_check_interval",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub health_check_interval: Duration,
+
+    #[serde(default = "default::multi_path::failure_threshold")]
+    pub failure_threshold: u32,
+
+    #[serde(default = "default::multi_path::recovery_threshold")]
+    pub recovery_threshold: u32,
+
+    #[serde(default = "default::multi_path::latency_weight")]
+    pub latency_weight: f64,
+
+    #[serde(default = "default::multi_path::loss_weight")]
+    pub loss_weight: f64,
+
+    // Connection pooling settings
+    #[serde(default = "default::multi_path::max_connections_per_path")]
+    pub max_connections_per_path: u32,
+
+    #[serde(default = "default::multi_path::min_connections_per_path")]
+    pub min_connections_per_path: u32,
+
+    #[serde(
+        default = "default::multi_path::connection_idle_timeout",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub connection_idle_timeout: Duration,
+
+    // Load balancing strategy
+    #[serde(
+        default = "default::multi_path::load_balancing_strategy",
+        deserialize_with = "deserialize_from_str"
+    )]
+    pub load_balancing_strategy: LoadBalancingStrategy,
+
+    // Bandwidth aggregation settings
+    #[serde(default = "default::multi_path::enable_bandwidth_aggregation")]
+    pub enable_bandwidth_aggregation: bool,
+
+    #[serde(
+        default = "default::multi_path::bandwidth_measurement_interval",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub bandwidth_measurement_interval: Duration,
+
+    // Real-time metrics settings
+    #[serde(default = "default::multi_path::enable_adaptive_weights")]
+    pub enable_adaptive_weights: bool,
+
+    #[serde(
+        default = "default::multi_path::metrics_update_interval",
+        deserialize_with = "deserialize_duration"
+    )]
+    pub metrics_update_interval: Duration,
+
+    // Path selection settings
+    #[serde(default = "default::multi_path::enable_path_prioritization")]
+    pub enable_path_prioritization: bool,
+
+    #[serde(default = "default::multi_path::consistent_hashing_replicas")]
+    pub consistent_hashing_replicas: u32,
+}
+
+impl Default for MultiPathConfig {
+    fn default() -> Self {
+        Self {
+            health_check_interval: default::multi_path::health_check_interval(),
+            failure_threshold: default::multi_path::failure_threshold(),
+            recovery_threshold: default::multi_path::recovery_threshold(),
+            latency_weight: default::multi_path::latency_weight(),
+            loss_weight: default::multi_path::loss_weight(),
+            max_connections_per_path: default::multi_path::max_connections_per_path(),
+            min_connections_per_path: default::multi_path::min_connections_per_path(),
+            connection_idle_timeout: default::multi_path::connection_idle_timeout(),
+            load_balancing_strategy: default::multi_path::load_balancing_strategy(),
+            enable_bandwidth_aggregation: default::multi_path::enable_bandwidth_aggregation(),
+            bandwidth_measurement_interval: default::multi_path::bandwidth_measurement_interval(),
+            enable_adaptive_weights: default::multi_path::enable_adaptive_weights(),
+            metrics_update_interval: default::multi_path::metrics_update_interval(),
+            enable_path_prioritization: default::multi_path::enable_path_prioritization(),
+            consistent_hashing_replicas: default::multi_path::consistent_hashing_replicas(),
+        }
+    }
+}
+
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Relay {
     #[serde(deserialize_with = "deserialize_server")]
@@ -126,6 +256,13 @@ pub struct Relay {
 
     #[serde(default = "default::relay::skip_cert_verify")]
     pub skip_cert_verify: bool,
+
+    // Multi-path specific settings
+    #[serde(default = "default::relay::priority")]
+    pub priority: u32,
+
+    #[serde(default = "default::relay::enabled")]
+    pub enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -261,11 +398,92 @@ mod default {
         pub fn skip_cert_verify() -> bool {
             false
         }
+
+        // Multi-path specific defaults
+        pub fn priority() -> u32 {
+            100 // Default priority, lower numbers = higher priority
+        }
+
+        pub fn enabled() -> bool {
+            true
+        }
     }
 
     pub mod local {
         pub fn max_packet_size() -> usize {
             1500
+        }
+    }
+
+    pub mod multi_path {
+        use std::time::Duration;
+
+        use crate::config::LoadBalancingStrategy;
+
+        pub fn health_check_interval() -> Duration {
+            Duration::from_secs(5)
+        }
+
+        pub fn failure_threshold() -> u32 {
+            3
+        }
+
+        pub fn recovery_threshold() -> u32 {
+            2
+        }
+
+        pub fn latency_weight() -> f64 {
+            0.7
+        }
+
+        pub fn loss_weight() -> f64 {
+            0.3
+        }
+
+        // Connection pooling defaults
+        pub fn max_connections_per_path() -> u32 {
+            10
+        }
+
+        pub fn min_connections_per_path() -> u32 {
+            1
+        }
+
+        pub fn connection_idle_timeout() -> Duration {
+            Duration::from_secs(300) // 5 minutes
+        }
+
+        // Load balancing defaults
+        pub fn load_balancing_strategy() -> LoadBalancingStrategy {
+            LoadBalancingStrategy::WeightedRoundRobin
+        }
+
+        // Bandwidth aggregation defaults
+        pub fn enable_bandwidth_aggregation() -> bool {
+            false
+        }
+
+        pub fn bandwidth_measurement_interval() -> Duration {
+            Duration::from_secs(10)
+        }
+
+        // Real-time metrics defaults
+        pub fn enable_adaptive_weights() -> bool {
+            true
+        }
+
+        pub fn metrics_update_interval() -> Duration {
+            Duration::from_secs(30)
+        }
+
+        // Path prioritization defaults
+        pub fn enable_path_prioritization() -> bool {
+            false
+        }
+
+        // Consistent hashing defaults
+        pub fn consistent_hashing_replicas() -> u32 {
+            100
         }
     }
 

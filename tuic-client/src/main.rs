@@ -5,7 +5,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
-    config::{Config, ConfigError},
+    config::{Config, ConfigError, RelayConfig},
     connection::Connection,
     socks5::Server as Socks5Server,
 };
@@ -67,14 +67,28 @@ async fn main() -> eyre::Result<()> {
         )
         .try_init()?;
 
-    match Connection::set_config(cfg.relay).await {
-        Ok(()) => {}
-        Err(err) => {
-            eprintln!("{err}");
-            process::exit(1);
+    // let relay_setup = async {
+    match cfg.relay_config {
+        RelayConfig::Single(relay) => match Connection::set_config(relay).await {
+            Ok(()) => {}
+            Err(err) => {
+                eprintln!("{err}");
+                process::exit(1);
+            }
+        },
+        RelayConfig::Multiple(relays) => {
+            match Connection::set_multi_path_config(relays, cfg.multi_path).await {
+                Ok(()) => {}
+                Err(err) => {
+                    eprintln!("{err}");
+                    process::exit(1);
+                }
+            }
         }
     }
+    // };
 
+    // let socks5_setup = async {
     match Socks5Server::set_config(cfg.local) {
         Ok(()) => {}
         Err(err) => {
@@ -82,7 +96,10 @@ async fn main() -> eyre::Result<()> {
             process::exit(1);
         }
     }
-
     Socks5Server::start().await;
+    // };
+
+    // tokio::join!(relay_setup, socks5_setup);
+
     Ok(())
 }
