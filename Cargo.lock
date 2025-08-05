@@ -2646,6 +2646,7 @@ dependencies = [
  "register-count",
  "reqwest",
  "rustls",
+ "rustls-native-certs",
  "rustls-pemfile",
  "serde",
  "serde_json",

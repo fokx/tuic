@@ -84,6 +84,17 @@ async fn main() -> eyre::Result<()> {
                     process::exit(1);
                 }
             }
+        },
+        RelayConfig::Chain(relay_chain) => {
+            // For relay chains, use intermediate relays for multi-path connections
+            // The intermediate relays should be configured to forward to the exit server
+            match Connection::set_multi_path_config(relay_chain.intermediate_relays, cfg.multi_path).await {
+                Ok(()) => {}
+                Err(err) => {
+                    eprintln!("{err}");
+                    process::exit(1);
+                }
+            }
         }
     }
     // };

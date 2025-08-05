@@ -1,0 +1,69 @@
+{
+  "relays": [
+    {
+      "server": "relay1.example.com:443",
+      "uuid": "00000000-0000-0000-0000-000000000001",
+      "password": "password1",
+      "ip": "",
+      "certificates": [],
+      "udp_relay_mode": "native",
+      "congestion_control": "bbr",
+      "alpn": [
+        "h3"
+      ],
+      "zero_rtt_handshake": false,
+      "disable_sni": false,
+      "timeout": "8s",
+      "heartbeat": "3s",
+      "disable_native_certs": false,
+      "gc_interval": "3s",
+      "gc_lifetime": "15s",
+      "skip_cert_verify": false,
+      "priority": 30,
+      "enabled": true
+    },
+    {
+      "server": "relay2.example.com:443",
+      "uuid": "00000000-0000-0000-0000-000000000001",
+      "password": "password1",
+      "ip": "",
+      "certificates": [],
+      "udp_relay_mode": "native",
+      "congestion_control": "bbr",
+      "alpn": [
+        "h3"
+      ],
+      "zero_rtt_handshake": false,
+      "disable_sni": false,
+      "timeout": "8s",
+      "heartbeat": "3s",
+      "disable_native_certs": false,
+      "gc_interval": "3s",
+      "gc_lifetime": "15s",
+      "skip_cert_verify": false,
+      "priority": 30,
+      "enabled": true
+    }
+  ],
+  "multi_path": {
+    "health_check_interval": "5s",
+    "failure_threshold": 3,
+    "recovery_threshold": 2,
+    "latency_weight": 0.7,
+    "loss_weight": 0.3,
+    "max_connections_per_path": 10,
+    "min_connections_per_path": 1,
+    "connection_idle_timeout": "300s",
+    "load_balancing_strategy": "adaptive",
+    "enable_bandwidth_aggregation": true,
+    "bandwidth_measurement_interval": "10s",
+    "enable_adaptive_weights": true,
+    "metrics_update_interval": "30s",
+    "enable_path_prioritization": true,
+    "consistent_hashing_replicas": 100
+  },
+  "local": {
+    "server": "127.0.0.1:1080"
+  },
+  "log_level": "info"
+}

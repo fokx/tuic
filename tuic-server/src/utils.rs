@@ -6,7 +6,8 @@ use std::{
 use educe::Educe;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum UdpRelayMode {
     Native,
     Quic,
@@ -21,7 +22,7 @@ impl Display for UdpRelayMode {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 #[derive(Educe)]
 #[educe(Default)]

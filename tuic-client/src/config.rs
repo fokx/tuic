@@ -76,6 +76,15 @@ pub enum RelayConfig {
     Single(Relay),
     #[serde(rename = "relays")]
     Multiple(Vec<Relay>),
+    #[serde(rename = "relay_chain")]
+    Chain(RelayChain),
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct RelayChain {
+    pub intermediate_relays: Vec<Relay>,
+    pub exit_server: Relay,
 }
 
 #[derive(Deserialize, Clone)]

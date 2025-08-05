@@ -7,7 +7,7 @@ use tokio::time;
 use tracing::{debug, warn};
 use tuic_quinn::Task;
 
-use super::Connection;
+use super::{format_address, Connection};
 use crate::{error::Error, utils::UdpRelayMode};
 
 impl Connection {
@@ -15,7 +15,7 @@ impl Connection {
         debug!(
             "[{id:#010x}] [{addr}] [{user}] incoming unidirectional stream",
             id = self.id(),
-            addr = self.inner.remote_address(),
+            addr = format_address(self.inner.remote_address()),
             user = self.auth,
         );
 
@@ -65,7 +65,7 @@ impl Connection {
                     "[{id:#010x}] [{addr}] [{user}] handling incoming unidirectional stream \
                      error: {err}",
                     id = self.id(),
-                    addr = self.inner.remote_address(),
+                    addr = format_address(self.inner.remote_address()),
                     user = self.auth,
                 );
                 self.close();
@@ -77,7 +77,7 @@ impl Connection {
         debug!(
             "[{id:#010x}] [{addr}] [{user}] incoming bidirectional stream",
             id = self.id(),
-            addr = self.inner.remote_address(),
+            addr = format_address(self.inner.remote_address()),
             user = self.auth,
         );
 
@@ -115,7 +115,7 @@ impl Connection {
                     "[{id:#010x}] [{addr}] [{user}] handling incoming bidirectional stream error: \
                      {err}",
                     id = self.id(),
-                    addr = self.inner.remote_address(),
+                    addr = format_address(self.inner.remote_address()),
                     user = self.auth,
                 );
                 self.close();
@@ -127,7 +127,7 @@ impl Connection {
         debug!(
             "[{id:#010x}] [{addr}] [{user}] incoming datagram",
             id = self.id(),
-            addr = self.inner.remote_address(),
+            addr = format_address(self.inner.remote_address()),
             user = self.auth,
         );
 
@@ -156,7 +156,7 @@ impl Connection {
                 warn!(
                     "[{id:#010x}] [{addr}] [{user}] handling incoming datagram error: {err}",
                     id = self.id(),
-                    addr = self.inner.remote_address(),
+                    addr = format_address(self.inner.remote_address()),
                     user = self.auth,
                 );
                 self.close();

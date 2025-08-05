@@ -1,9 +1,9 @@
-use std::{collections::HashMap, net::SocketAddr, path::PathBuf, time::Duration};
+use std::{collections::HashMap, env::ArgsOs, net::SocketAddr, path::PathBuf, time::Duration};
 
 use educe::Educe;
 use figment::{
-    Figment,
     providers::{Format, Serialized, Toml},
+    Figment,
 };
 use lexopt::{Arg, Parser};
 use serde::{Deserialize, Serialize};
@@ -12,10 +12,10 @@ use uuid::Uuid;
 
 use crate::{
     old_config::{ConfigError, OldConfig},
-    utils::CongestionController,
+    utils::{CongestionController, UdpRelayMode},
 };
 
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -64,9 +64,12 @@ pub struct Config {
     #[serde(with = "humantime_serde")]
     #[educe(Default(expression = Duration::from_millis(60000)))]
     pub stream_timeout: Duration,
+
+    #[educe(Default = None)]
+    pub forwarding: Option<ForwardingConfig>,
 }
 
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct TlsConfig {
@@ -81,7 +84,7 @@ pub struct TlsConfig {
     pub auto_ssl: bool,
 }
 
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct QuicConfig {
@@ -109,7 +112,7 @@ pub struct QuicConfig {
     #[educe(Default(expression = Duration::from_millis(10000)))]
     pub max_idle_time: Duration,
 }
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct CongestionControlConfig {
@@ -130,6 +133,57 @@ pub struct RestfulConfig {
     pub maximum_clients_per_user: u64,
 }
 
+#[derive(Deserialize, Serialize, Educe, Clone)]
+#[educe(Default)]
+#[serde(deny_unknown_fields)]
+pub struct ForwardingConfig {
+    #[educe(Default = false)]
+    pub enabled: bool,
+
+    #[educe(Default = "")]
+    pub target_server: String,
+
+    #[educe(Default = 443)]
+    pub target_port: u16,
+
+    pub uuid: Option<Uuid>,
+
+    #[educe(Default = "")]
+    pub password: String,
+
+    #[educe(Default(expression = Vec::new()))]
+    pub certificates: Vec<PathBuf>,
+
+    #[educe(Default(expression = UdpRelayMode::Native))]
+    pub udp_relay_mode: UdpRelayMode,
+
+    #[educe(Default(expression = CongestionController::Bbr))]
+    pub congestion_control: CongestionController,
+
+    #[educe(Default(expression = Vec::new()))]
+    pub alpn: Vec<String>,
+
+    #[educe(Default = false)]
+    pub zero_rtt_handshake: bool,
+
+    #[educe(Default = false)]
+    pub disable_sni: bool,
+
+    #[serde(with = "humantime_serde")]
+    #[educe(Default(expression = Duration::from_millis(8000)))]
+    pub timeout: Duration,
+
+    #[serde(with = "humantime_serde")]
+    #[educe(Default(expression = Duration::from_millis(3000)))]
+    pub heartbeat: Duration,
+
+    #[educe(Default = false)]
+    pub disable_native_certs: bool,
+
+    #[educe(Default = false)]
+    pub skip_cert_verify: bool,
+}
+
 impl Config {
     pub fn full_example() -> Self {
         Self {
@@ -139,6 +193,14 @@ impl Config {
                 users
             },
             restful: Some(RestfulConfig::default()),
+            forwarding: Some(ForwardingConfig {
+                enabled: false,
+                target_server: "exit-server.example.com".to_string(),
+                target_port: 443,
+                uuid: Some(Uuid::new_v4()),
+                password: "EXIT_SERVER_PASSWORD".to_string(),
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
@@ -188,7 +250,7 @@ impl From<OldConfig> for Config {
                 receive_window: value.receive_window,
                 max_idle_time: value.max_idle_time,
             },
-            data_dir: value.data_dir,
+            forwarding: None,
             ..Default::default()
         }
     }
@@ -337,35 +399,35 @@ mod tests {
     #[tokio::test]
     async fn test_valid_toml_config() -> eyre::Result<()> {
         let config = r#"
-            log_level = "warn"
-            server = "127.0.0.1:8080"
-            data_dir = "__test__custom_data"
-            udp_relay_ipv6 = false
-            zero_rtt_handshake = true
+        log_level = "warn"
+        server = "127.0.0.1:8080"
+        data_dir = "__test__custom_data"
+        udp_relay_ipv6 = false
+        zero_rtt_handshake = true
 
-            [tls]
-            self_sign = true
-            auto_ssl = true
-            hostname = "testhost"
+        [tls]
+        self_sign = true
+        auto_ssl = true
+        hostname = "testhost"
 
-            [quic]
-            initial_mtu = 1400
-            min_mtu = 1300
-            send_window = 10000000
+        [quic]
+        initial_mtu = 1400
+        min_mtu = 1300
+        send_window = 10000000
 
-            [quic.congestion_control]
-            controller = "bbr"
-            initial_window = 2000000
+        [quic.congestion_control]
+        controller = "bbr"
+        initial_window = 2000000
 
-            [restful]
-            addr = "192.168.1.100:8081"
-            secret = "test_secret"
-            maximum_clients_per_user = 5
+        [restful]
+        addr = "192.168.1.100:8081"
+        secret = "test_secret"
+        maximum_clients_per_user = 5
 
-            [users]
-            "123e4567-e89b-12d3-a456-426614174000" = "password1"
-            "123e4567-e89b-12d3-a456-426614174001" = "password2"
-        "#;
+        [users]
+        "123e4567-e89b-12d3-a456-426614174000" = "password1"
+        "123e4567-e89b-12d3-a456-426614174001" = "password2"
+    "#;
 
         let result = test_parse_config(config, ".toml", &[]).await.unwrap();
 
@@ -402,18 +464,18 @@ mod tests {
     #[tokio::test]
     async fn test_old_json_config() {
         let config = r#"{
-            "log_level": "error",
-            "server": "[::1]:8443",
-            "users": {
-                "123e4567-e89b-12d3-a456-426614174002": "old_password"
-            },
-            "tls": {
-                "self_sign": false,
-                "certificate": "old_cert.pem",
-                "private_key": "old_key.pem"
-            },
-            "data_dir": "__test__legacy_data"
-        }"#;
+        "log_level": "error",
+        "server": "[::1]:8443",
+        "users": {
+            "123e4567-e89b-12d3-a456-426614174002": "old_password"
+        },
+        "tls": {
+            "self_sign": false,
+            "certificate": "old_cert.pem",
+            "private_key": "old_key.pem"
+        },
+        "data_dir": "__test__legacy_data"
+    }"#;
 
         let result = test_parse_config(config, ".json", &[]).await.unwrap();
 
@@ -433,12 +495,12 @@ mod tests {
     #[tokio::test]
     async fn test_path_handling() {
         let config = r#"
-            data_dir = "__test__relative_path"
+        data_dir = "__test__relative_path"
 
-            [tls]
-            certificate = "certs/server.crt"
-            private_key = "certs/server.key"
-        "#;
+        [tls]
+        certificate = "certs/server.crt"
+        private_key = "certs/server.key"
+    "#;
 
         let result = test_parse_config(config, ".toml", &[]).await.unwrap();
 
@@ -463,11 +525,11 @@ mod tests {
     #[tokio::test]
     async fn test_auto_ssl_path_generation() {
         let config = r#"
-            data_dir = "__test__ssl_data"
-            [tls]
-            auto_ssl = true
-            hostname = "example.com"
-        "#;
+        data_dir = "__test__ssl_data"
+        [tls]
+        auto_ssl = true
+        hostname = "example.com"
+    "#;
 
         let result = test_parse_config(config, ".toml", &[]).await.unwrap();
 
