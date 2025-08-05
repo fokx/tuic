@@ -1,0 +1,67 @@
+# TUIC Server Configuration - Intermediate Relay
+# This server acts as an intermediate relay that forwards traffic to an exit server
+
+# Basic server settings
+log_level = "info"
+server = "[::]:443"
+dual_stack = true
+zero_rtt_handshake = false
+
+# User authentication
+[users]
+"f759f089-fc05-4274-a069-72f63e378ebe" = "relay1_password_here"
+
+# TLS configuration
+[tls]
+self_sign = false
+certificate = "/path/to/certificate.pem"
+private_key = "/path/to/private_key.pem"
+alpn = ["h3"]
+hostname = "relay1.example.com"
+auto_ssl = false
+
+# QUIC configuration
+[quic]
+initial_mtu = 1200
+min_mtu = 1200
+gso = true
+pmtu = true
+send_window = 16777216
+receive_window = 8388608
+max_idle_time = "10s"
+
+[quic.congestion_control]
+controller = "bbr"
+initial_window = 1048576
+
+# Forwarding configuration - Forward all traffic to exit server
+[forwarding]
+enabled = true
+target_server = "domain"
+target_port = 443
+uuid = "uuid"
+password = "pass"
+certificates = []
+udp_relay_mode = "native"
+congestion_control = "bbr"
+alpn = ["h3"]
+zero_rtt_handshake = false
+disable_sni = false
+timeout = "8s"
+heartbeat = "3s"
+disable_native_certs = false
+skip_cert_verify = false
+
+# Optional: RESTful API for monitoring
+[restful]
+addr = "127.0.0.1:8443"
+secret = "your_secret_here"
+maximum_clients_per_user = 100
+
+# Timeouts and garbage collection
+auth_timeout = "3s"
+task_negotiation_timeout = "3s"
+gc_interval = "3s"
+gc_lifetime = "15s"
+max_external_packet_size = 1500
+stream_timeout = "60s"

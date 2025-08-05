@@ -4,7 +4,7 @@ use config::{Config, parse_config};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt::time::LocalTime, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{old_config::ConfigError, server::Server};
+use crate::{connection::forwarding::ForwardingManager, old_config::ConfigError, server::Server};
 
 mod config;
 mod connection;
@@ -25,6 +25,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 struct AppContext {
     pub cfg: Config,
+    pub forwarding_manager: Option<ForwardingManager>,
 }
 
 #[tokio::main]
@@ -40,7 +41,11 @@ async fn main() -> eyre::Result<()> {
             process::exit(1);
         }
     };
-    let ctx = Arc::new(AppContext { cfg });
+    let forwarding_manager = cfg.forwarding.as_ref()
+        .filter(|f| f.enabled)
+        .map(|f| ForwardingManager::new(Arc::new(AppContext { cfg: cfg.clone(), forwarding_manager: None }), f.clone()));
+
+    let ctx = Arc::new(AppContext { cfg, forwarding_manager });
 
     let filter = tracing_subscriber::filter::Targets::new()
         .with_targets(vec![

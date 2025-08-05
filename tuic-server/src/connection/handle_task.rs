@@ -14,7 +14,7 @@ use tracing::{info, warn};
 use tuic::Address;
 use tuic_quinn::{Authenticate, Connect, Packet};
 
-use super::{Connection, ERROR_CODE, UdpSession};
+use super::{Connection, ERROR_CODE, UdpSession, format_address};
 use crate::{error::Error, io::exchange_tcp, restful, utils::UdpRelayMode};
 
 impl Connection {
@@ -22,7 +22,7 @@ impl Connection {
         info!(
             "[{id:#010x}] [{addr}] [{user}] [AUTH] {auth_uuid}",
             id = self.id(),
-            addr = self.inner.remote_address(),
+             addr = format_address(self.inner.remote_address()),
             user = self.auth,
             auth_uuid = auth.uuid(),
         );
@@ -34,9 +34,43 @@ impl Connection {
         info!(
             "[{id:#010x}] [{addr}] [{user}] [TCP] {target_addr} ",
             id = self.id(),
-            addr = self.inner.remote_address(),
+             addr = format_address(self.inner.remote_address()),
             user = self.auth,
         );
+
+        // Check if forwarding is enabled
+        if let Some(forwarding_manager) = &self.ctx.forwarding_manager {
+            if forwarding_manager.is_enabled() {
+                info!(
+                    "[{id:#010x}] [{addr}] [{user}] [TCP-FORWARD] {target_addr}",
+                    id = self.id(),
+                    addr = format_address(self.inner.remote_address()),
+                    user = self.auth,
+                );
+
+                match forwarding_manager.get_connection().await {
+                    Ok(forwarding_conn) => {
+                        if let Err(err) = forwarding_conn.forward_connect(conn).await {
+                            warn!(
+                                "[{id:#010x}] [{addr}] [{user}] [TCP-FORWARD] {target_addr}: {err}",
+                                id = self.id(),
+                    addr = format_address(self.inner.remote_address()),
+                                user = self.auth,
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        warn!(
+                            "[{id:#010x}] [{addr}] [{user}] [TCP-FORWARD] failed to get forwarding connection: {err}",
+                            id = self.id(),
+                             addr = format_address(self.inner.remote_address()),
+                            user = self.auth,
+                        );
+                    }
+                }
+                return;
+            }
+        }
 
         let process = async {
             let mut stream = None;
@@ -91,7 +125,7 @@ impl Connection {
             Err(err) => warn!(
                 "[{id:#010x}] [{addr}] [{user}] [TCP] {target_addr}: {err}",
                 id = self.id(),
-                addr = self.inner.remote_address(),
+                 addr = format_address(self.inner.remote_address()),
                 user = self.auth,
             ),
         }
@@ -107,12 +141,50 @@ impl Connection {
             "[{id:#010x}] [{addr}] [{user}] [UDP-OUT] [{assoc_id:#06x}] [from-{mode}] \
              [{pkt_id:#06x}] fragment {frag_id}/{frag_total}",
             id = self.id(),
-            addr = self.inner.remote_address(),
+             addr = format_address(self.inner.remote_address()),
             user = self.auth,
             frag_id = frag_id + 1,
         );
 
         self.udp_relay_mode.store(Some(mode).into());
+
+        // Check if forwarding is enabled
+        if let Some(forwarding_manager) = &self.ctx.forwarding_manager {
+            if forwarding_manager.is_enabled() {
+                info!(
+                    "[{id:#010x}] [{addr}] [{user}] [UDP-FORWARD] [{assoc_id:#06x}] [from-{mode}] \
+                     [{pkt_id:#06x}] fragment {frag_id}/{frag_total}",
+                    id = self.id(),
+                     addr = format_address(self.inner.remote_address()),
+                    user = self.auth,
+                    frag_id = frag_id + 1,
+                );
+
+                match forwarding_manager.get_connection().await {
+                    Ok(forwarding_conn) => {
+                        if let Err(err) = forwarding_conn.forward_packet(pkt, mode).await {
+                            warn!(
+                                "[{id:#010x}] [{addr}] [{user}] [UDP-FORWARD] [{assoc_id:#06x}] [from-{mode}] \
+                                 [{pkt_id:#06x}] fragment {frag_id}/{frag_total}: {err}",
+                                id = self.id(),
+                                 addr = format_address(self.inner.remote_address()),
+                                user = self.auth,
+                                frag_id = frag_id + 1,
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        warn!(
+                            "[{id:#010x}] [{addr}] [{user}] [UDP-FORWARD] failed to get forwarding connection: {err}",
+                            id = self.id(),
+                             addr = format_address(self.inner.remote_address()),
+                            user = self.auth,
+                        );
+                    }
+                }
+                return;
+            }
+        }
 
         let (pkt, addr, assoc_id) = match pkt.accept().await {
             Ok(None) => return,
@@ -122,7 +194,7 @@ impl Connection {
                     "[{id:#010x}] [{addr}] [{user}] [UDP-OUT] [{assoc_id:#06x}] [from-{mode}] \
                      [{pkt_id:#06x}] fragment {frag_id}/{frag_total}: {err}",
                     id = self.id(),
-                    addr = self.inner.remote_address(),
+                     addr = format_address(self.inner.remote_address()),
                     user = self.auth,
                     frag_id = frag_id + 1,
                 );
@@ -135,7 +207,7 @@ impl Connection {
                 "[{id:#010x}] [{addr}] [{user}] [UDP-OUT] [{assoc_id:#06x}] [from-{mode}] \
                  [{pkt_id:#06x}] to {src_addr}",
                 id = self.id(),
-                addr = self.inner.remote_address(),
+                 addr = format_address(self.inner.remote_address()),
                 user = self.auth,
                 src_addr = addr,
             );
@@ -178,7 +250,7 @@ impl Connection {
                 "[{id:#010x}] [{addr}] [{user}] [UDP-OUT] [{assoc_id:#06x}] [from-{mode}] \
                  [{pkt_id:#06x}] to {src_addr}: {err}",
                 id = self.id(),
-                addr = self.inner.remote_address(),
+                 addr = format_address(self.inner.remote_address()),
                 user = self.auth,
                 src_addr = addr,
             );
@@ -189,7 +261,7 @@ impl Connection {
         info!(
             "[{id:#010x}] [{addr}] [{user}] [UDP-DROP] [{assoc_id:#06x}]",
             id = self.id(),
-            addr = self.inner.remote_address(),
+             addr = format_address(self.inner.remote_address()),
             user = self.auth,
         );
 
@@ -204,7 +276,7 @@ impl Connection {
         info!(
             "[{id:#010x}] [{addr}] [{user}] [HB]",
             id = self.id(),
-            addr = self.inner.remote_address(),
+             addr = format_address(self.inner.remote_address()),
             user = self.auth,
         );
     }
@@ -215,7 +287,7 @@ impl Connection {
         info!(
             "[{id:#010x}] [{addr}] [{user}] [UDP-IN] [{assoc_id:#06x}] [to-{mode}] from {src_addr}",
             id = self.id(),
-            addr = self.inner.remote_address(),
+             addr = format_address(self.inner.remote_address()),
             user = self.auth,
             mode = self.udp_relay_mode.load().unwrap(),
             src_addr = addr_display,
@@ -237,7 +309,7 @@ impl Connection {
                 "[{id:#010x}] [{addr}] [{user}] [UDP-IN] [{assoc_id:#06x}] [to-{mode}] from \
                  {src_addr}: {err}",
                 id = self.id(),
-                addr = self.inner.remote_address(),
+                 addr = format_address(self.inner.remote_address()),
                 user = self.auth,
                 mode = self.udp_relay_mode.load().unwrap(),
                 src_addr = addr_display,

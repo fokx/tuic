@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Weak, atomic::AtomicU32},
+    sync::{atomic::AtomicU32, Arc, Weak},
     time::Duration,
 };
 
@@ -9,12 +9,13 @@ use quinn::{Connecting, Connection as QuinnConnection, VarInt};
 use register_count::Counter;
 use tokio::{sync::RwLock as AsyncRwLock, time};
 use tracing::{debug, info, warn};
-use tuic_quinn::{Authenticate, Connection as Model, side};
+use tuic_quinn::{side, Authenticate, Connection as Model};
 
 use self::{authenticated::Authenticated, udp_session::UdpSession};
-use crate::{AppContext, error::Error, restful, utils::UdpRelayMode};
+use crate::{error::Error, restful, utils::UdpRelayMode, AppContext};
 
 mod authenticated;
+pub mod forwarding;
 mod handle_stream;
 mod handle_task;
 mod udp_session;
@@ -34,6 +35,24 @@ pub struct Connection {
     remote_bi_stream_cnt: Counter,
     max_concurrent_uni_streams: Arc<AtomicU32>,
     max_concurrent_bi_streams: Arc<AtomicU32>,
+}
+
+pub fn format_address(addr: std::net::SocketAddr) -> String {
+    match addr {
+        std::net::SocketAddr::V6(v6) => {
+            // Check for IPv4-mapped IPv6 addresses (::ffff:a.b.c.d)
+            let segments = v6.ip().segments();
+            let is_mapped = segments[0..5] == [0, 0, 0, 0, 0] && segments[5] == 0xffff;
+
+            if is_mapped {
+                if let Some(ipv4) = v6.ip().to_ipv4() {
+                    return format!("{}:{}", ipv4, v6.port());
+                }
+            }
+            addr.to_string()
+        }
+        _ => addr.to_string(),
+    }
 }
 
 impl Connection {
@@ -58,6 +77,7 @@ impl Connection {
                 info!(
                     "[{id:#010x}] [{addr}] [{user}] connection established",
                     id = conn.id(),
+                    addr = format_address(conn.inner.remote_address()),
                     user = conn.auth,
                 );
                 tokio::spawn(conn.clone().timeout_authenticate(ctx.cfg.auth_timeout));
@@ -87,12 +107,14 @@ impl Connection {
                             debug!(
                                 "[{id:#010x}] [{addr}] [{user}] {err}",
                                 id = conn.id(),
+                                addr = format_address(addr),
                                 user = conn.auth,
                             );
                         }
                         Err(err) => warn!(
                             "[{id:#010x}] [{addr}] [{user}] connection error: {err}",
                             id = conn.id(),
+                            addr = format_address(addr),
                             user = conn.auth,
                         ),
                     }
@@ -102,12 +124,14 @@ impl Connection {
                 debug!(
                     "[{id:#010x}] [{addr}] [unauthenticated] {err}",
                     id = u32::MAX,
+                    addr = format_address(addr),
                 );
             }
             Err(err) => {
                 warn!(
                     "[{id:#010x}] [{addr}] [unauthenticated] {err}",
                     id = u32::MAX,
+                    addr = format_address(addr),
                 )
             }
         }
@@ -156,7 +180,7 @@ impl Connection {
                 warn!(
                     "[{id:#010x}] [{addr}] [unauthenticated] [authenticate] timeout",
                     id = self.id(),
-                    addr = self.inner.remote_address(),
+                    addr = format_address(self.inner.remote_address()),
                 );
                 self.close();
             }
@@ -177,7 +201,7 @@ impl Connection {
             debug!(
                 "[{id:#010x}] [{addr}] [{user}] packet fragment garbage collecting event",
                 id = self.id(),
-                addr = self.inner.remote_address(),
+                addr = format_address(self.inner.remote_address()),
                 user = self.auth,
             );
             self.model.collect_garbage(self.ctx.cfg.gc_lifetime);

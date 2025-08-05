@@ -12,10 +12,10 @@ use uuid::Uuid;
 
 use crate::{
     old_config::{ConfigError, OldConfig},
-    utils::CongestionController,
+    utils::{CongestionController, UdpRelayMode},
 };
 
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -64,9 +64,12 @@ pub struct Config {
     #[serde(with = "humantime_serde")]
     #[educe(Default(expression = Duration::from_millis(60000)))]
     pub stream_timeout: Duration,
+
+    #[educe(Default = None)]
+    pub forwarding: Option<ForwardingConfig>,
 }
 
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct TlsConfig {
@@ -81,7 +84,7 @@ pub struct TlsConfig {
     pub auto_ssl: bool,
 }
 
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct QuicConfig {
@@ -109,7 +112,7 @@ pub struct QuicConfig {
     #[educe(Default(expression = Duration::from_millis(10000)))]
     pub max_idle_time: Duration,
 }
-#[derive(Deserialize, Serialize, Educe)]
+#[derive(Clone, Deserialize, Serialize, Educe)]
 #[educe(Default)]
 #[serde(deny_unknown_fields)]
 pub struct CongestionControlConfig {
@@ -130,6 +133,57 @@ pub struct RestfulConfig {
     pub maximum_clients_per_user: u64,
 }
 
+#[derive(Deserialize, Serialize, Educe, Clone)]
+#[educe(Default)]
+#[serde(deny_unknown_fields)]
+pub struct ForwardingConfig {
+    #[educe(Default = false)]
+    pub enabled: bool,
+
+    #[educe(Default = "")]
+    pub target_server: String,
+
+    #[educe(Default = 443)]
+    pub target_port: u16,
+
+    pub uuid: Option<Uuid>,
+
+    #[educe(Default = "")]
+    pub password: String,
+
+    #[educe(Default(expression = Vec::new()))]
+    pub certificates: Vec<PathBuf>,
+
+    #[educe(Default(expression = UdpRelayMode::Native))]
+    pub udp_relay_mode: UdpRelayMode,
+
+    #[educe(Default(expression = CongestionController::Bbr))]
+    pub congestion_control: CongestionController,
+
+    #[educe(Default(expression = Vec::new()))]
+    pub alpn: Vec<String>,
+
+    #[educe(Default = false)]
+    pub zero_rtt_handshake: bool,
+
+    #[educe(Default = false)]
+    pub disable_sni: bool,
+
+    #[serde(with = "humantime_serde")]
+    #[educe(Default(expression = Duration::from_millis(8000)))]
+    pub timeout: Duration,
+
+    #[serde(with = "humantime_serde")]
+    #[educe(Default(expression = Duration::from_millis(3000)))]
+    pub heartbeat: Duration,
+
+    #[educe(Default = false)]
+    pub disable_native_certs: bool,
+
+    #[educe(Default = false)]
+    pub skip_cert_verify: bool,
+}
+
 impl Config {
     pub fn full_example() -> Self {
         Self {
@@ -139,6 +193,14 @@ impl Config {
                 users
             },
             restful: Some(RestfulConfig::default()),
+            forwarding: Some(ForwardingConfig {
+                enabled: false,
+                target_server: "exit-server.example.com".to_string(),
+                target_port: 443,
+                uuid: Some(Uuid::new_v4()),
+                password: "EXIT_SERVER_PASSWORD".to_string(),
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
@@ -188,6 +250,7 @@ impl From<OldConfig> for Config {
                 receive_window: value.receive_window,
                 max_idle_time: value.max_idle_time,
             },
+            forwarding: None,
             ..Default::default()
         }
     }
