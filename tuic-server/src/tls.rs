@@ -11,7 +11,7 @@ use arc_swap::ArcSwap;
 use axum::{Router, extract::Path as AxumPath, http::StatusCode, routing::get};
 use eyre::{Context, Result};
 use instant_acme::{
-    Account, AuthorizationStatus, ChallengeType, Identifier, LetsEncrypt, NewAccount, NewOrder,
+    Account, AuthorizationStatus, ChallengeType, Identifier, ZeroSsl, NewAccount, NewOrder,
     OrderStatus, RetryPolicy,
 };
 use rustls::{
@@ -295,15 +295,18 @@ async fn provision_certificate_attempt(
     let (account, _credentials) = Account::builder()?
         .create(
             &NewAccount {
-                contact: &[&format!("mailto:admin@{hostname}")],
+                contact: &[&format!("mailto:admin-{hostname}@proton.me")],
                 terms_of_service_agreed: true,
                 only_return_existing: false,
             },
-            LetsEncrypt::Production.url().to_owned(),
+            ZeroSsl::Production.url().to_owned(),
             None,
         )
         .await
-        .context("Failed to create ACME account")?;
+            .map_err(|e| {
+                error!("Failed to create ACME account: {}", e);
+                eyre::eyre!("Failed to create ACME account: {}", e)
+            })?;
 
     info!("Created ACME account successfully");
 
