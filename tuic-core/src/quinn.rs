@@ -39,12 +39,46 @@ pub mod side {
 	}
 }
 
+/// Trait abstracting QUIC send stream operations.
+pub trait StreamTx: tokio::io::AsyncWrite + futures_util::AsyncWrite + Unpin + Send {
+	/// Notify the peer that no more data will be written to this stream.
+	fn finish(&mut self) -> Result<(), ::quinn::ClosedStream>;
+	/// Wait for the stream to be stopped or read to completion by the peer.
+	fn stopped(&mut self) -> impl std::future::Future<Output = Result<Option<VarInt>, ::quinn::StoppedError>> + Send;
+	/// Close the send stream immediately with the given error code.
+	fn reset(&mut self, error_code: VarInt) -> Result<(), ::quinn::ClosedStream>;
+}
+
+/// Trait abstracting QUIC receive stream operations.
+pub trait StreamRx: tokio::io::AsyncRead + futures_util::AsyncRead + Unpin + Send {
+	/// Stop accepting data and notify the peer to stop transmitting.
+	fn stop(&mut self, error_code: VarInt) -> Result<(), ::quinn::ClosedStream>;
+}
+
+impl StreamTx for ::quinn::SendStream {
+	fn finish(&mut self) -> Result<(), ::quinn::ClosedStream> {
+		SendStream::finish(self)
+	}
+
+	fn stopped(&mut self) -> impl std::future::Future<Output = Result<Option<VarInt>, ::quinn::StoppedError>> + Send {
+		SendStream::stopped(self)
+	}
+
+	fn reset(&mut self, error_code: VarInt) -> Result<(), ::quinn::ClosedStream> {
+		SendStream::reset(self, error_code)
+	}
+}
+
+impl StreamRx for ::quinn::RecvStream {
+	fn stop(&mut self, error_code: VarInt) -> Result<(), ::quinn::ClosedStream> {
+		RecvStream::stop(self, error_code)
+	}
+}
+
 /// The TUIC Connection.
 ///
 /// This struct takes a clone of `quinn::Connection` for performing TUIC
 /// operations.
-///
-/// See more details about the TUIC protocol at [SPEC.md](https://github.com/EAimTY/tuic/blob/dev/tuic/SPEC.md)
 #[derive(Clone)]
 pub struct Connection<Side> {
 	conn:    QuinnConnection,
@@ -276,7 +310,7 @@ impl Connection<side::Server> {
 		}
 	}
 
-	/// Try to parse a `quinn::RecvStream` as a TUIC command with prefetched
+	/// Try to parse a receive stream as a TUIC command with prefetched
 	/// prefix bytes.
 	pub async fn accept_uni_stream_prefixed(&self, recv: RecvStream, prefix: Bytes) -> Result<Task, Error> {
 		let mut prefixed = PrefixedRecvStream::new(recv, prefix);
@@ -328,8 +362,8 @@ impl Connection<side::Server> {
 		}
 	}
 
-	/// Try to parse a pair of `quinn::SendStream` and `quinn::RecvStream` as a
-	/// TUIC command with prefetched prefix bytes from `recv`.
+	/// Try to parse a pair of streams as a TUIC command with prefetched prefix
+	/// bytes from `recv`.
 	pub async fn accept_bi_stream_prefixed(&self, send: SendStream, recv: RecvStream, prefix: Bytes) -> Result<Task, Error> {
 		let mut prefixed = PrefixedRecvStream::new(recv, prefix);
 		let header = match Header::async_unmarshal(&mut prefixed).await {
