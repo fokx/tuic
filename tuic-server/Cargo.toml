@@ -35,7 +35,7 @@ tuic-core = { path = "../tuic-core", default-features = false, features = ["asyn
 # Tokio/Async
 tokio = { version = "1", default-features = false, features = ["io-util", "macros", "net", "parking_lot", "rt-multi-thread", "time", "fs", "signal"] }
 tokio-util = "0.7"
-axum-server = "0.8"
+axum-server = { version = "0.8", features = ["tls-rustls-no-provider"] }
 
 # TLS
 rustls = { version = "0.23", default-features = false }

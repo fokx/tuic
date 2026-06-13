@@ -255,6 +255,10 @@ pub struct QuicConfig {
 pub struct CamouflageConfig {
 	#[educe(Default = false)]
 	pub enabled: bool,
+	#[serde(default, deserialize_with = "deserialize_single_or_vec")]
+	pub https_listen_addr: Vec<String>,
+	#[serde(default, deserialize_with = "deserialize_single_or_vec")]
+	pub http_listen_addr: Vec<String>,
 	#[educe(Default(expression = "".to_string()))]
 	pub reverse_proxy_url: String,
 	#[educe(Default = None)]
@@ -918,6 +922,8 @@ mod tests {
 		assert!(result.camouflage.is_some());
 		let camouflage = result.camouflage.as_ref().unwrap();
 		assert!(camouflage.enabled);
+		assert_eq!(camouflage.https_listen_addr, Vec::<String>::new());
+		assert_eq!(camouflage.http_listen_addr, Vec::<String>::new());
 		assert_eq!(camouflage.reverse_proxy_url, "https://127.0.0.1:443");
 		assert_eq!(camouflage.reverse_proxy_hostname.as_deref(), Some("example.com"));
 		assert_eq!(camouflage.request_timeout, Duration::from_secs(15));
@@ -1036,6 +1042,27 @@ mod tests {
 		assert!(result.is_ok());
 		let cli = result.unwrap();
 		assert!(cli.config.is_none());
+	}
+
+	#[tokio::test]
+	async fn test_camouflage_listen_addr() -> eyre::Result<()> {
+		let config = r#"
+            log_level = "info"
+            server = "0.0.0.0:8443"
+            [users]
+            "123e4567-e89b-12d3-a456-426614174000" = "pass"
+            [camouflage]
+            enabled = true
+            https_listen_addr = "127.0.0.1:443"
+            http_listen_addr = ["127.0.0.1:80", "[::1]:80"]
+            reverse_proxy_url = "http://backend"
+        "#;
+
+		let result = test_parse_config(config, ".toml").await.unwrap();
+		let camouflage = result.camouflage.as_ref().unwrap();
+		assert_eq!(camouflage.https_listen_addr, vec!["127.0.0.1:443"]);
+		assert_eq!(camouflage.http_listen_addr, vec!["127.0.0.1:80", "[::1]:80"]);
+		Ok(())
 	}
 
 	#[tokio::test]

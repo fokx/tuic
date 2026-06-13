@@ -1,14 +1,22 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
-use axum::http::{
-	HeaderName, Request, Response, Uri,
-	header::{HOST, HeaderValue},
+use axum::{
+	Router,
+	extract::{Request, State},
+	http::{
+		HeaderName, Response, StatusCode, Uri,
+		header::{HOST, HeaderValue},
+	},
+	response::{IntoResponse, Redirect},
+	routing::any,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use bytes::{Buf, Bytes};
 use futures_util::StreamExt;
 use h3::server;
 use reqwest::{Client, Method, Url};
-use tracing::{debug, info, warn};
+use rustls::ServerConfig as RustlsServerConfig;
+use tracing::{debug, error, info, warn};
 use tuic_core::quinn::QuinnConnection;
 
 use crate::{AppContext, config::CamouflageConfig};
@@ -157,6 +165,128 @@ where
 	Ok(())
 }
 
+pub async fn start_https_proxy(
+	ctx: Arc<AppContext>,
+	addr: SocketAddr,
+	tls_config: RustlsServerConfig,
+) -> eyre::Result<()> {
+	let camouflage = ctx
+		.cfg
+		.camouflage
+		.as_ref()
+		.ok_or_else(|| eyre::eyre!("camouflage config is missing"))?;
+	let (backend, backend_host_override, client) = build_backend_route(camouflage)?;
+
+	info!(
+		"HTTP/2 camouflage listening at {addr}, reverse proxy target={target}, backend_host={host:?}",
+		target = backend,
+		host = backend_host_override
+	);
+
+	let app = Router::new()
+		.fallback(any(axum_forward_request))
+		.with_state((client, backend, backend_host_override));
+
+	let config = RustlsConfig::from_config(Arc::new(tls_config));
+
+	tokio::spawn(async move {
+		if let Err(e) = axum_server::bind_rustls(addr, config).serve(app.into_make_service()).await {
+			error!("[camouflage] HTTPS server error: {e}");
+		}
+	});
+
+	Ok(())
+}
+
+pub async fn start_http_redirect(addr: SocketAddr, https_addr: SocketAddr) -> eyre::Result<()> {
+	let listener = tokio::net::TcpListener::bind(addr).await?;
+
+	info!("HTTP camouflage redirect server listening at {addr}, redirecting to HTTPS {https_addr}");
+
+	let app = Router::new().fallback(move |host: axum::http::HeaderMap, uri: Uri| async move {
+		let mut parts = uri.into_parts();
+		parts.scheme = Some(axum::http::uri::Scheme::HTTPS);
+
+		if parts.authority.is_none() {
+			if let Some(host) = host.get(axum::http::header::HOST).and_then(|h| h.to_str().ok()) {
+				parts.authority = axum::http::uri::Authority::try_from(host).ok();
+			}
+		}
+
+		let https_port = https_addr.port();
+		if https_port != 443 {
+			parts.authority = parts.authority.map(|auth| {
+				let host = auth.host();
+				axum::http::uri::Authority::try_from(format!("{host}:{https_port}")).unwrap_or(auth)
+			});
+		}
+
+		if let Ok(https_uri) = Uri::from_parts(parts) {
+			Redirect::permanent(&https_uri.to_string()).into_response()
+		} else {
+			StatusCode::BAD_REQUEST.into_response()
+		}
+	});
+
+	tokio::spawn(async move {
+		if let Err(e) = axum::serve(listener, app).await {
+			error!("[camouflage] HTTP redirect server error: {e}");
+		}
+	});
+
+	Ok(())
+}
+
+async fn axum_forward_request(
+	State((client, backend, backend_host_override)): State<(Client, Url, Option<String>)>,
+	request: Request<axum::body::Body>,
+) -> impl IntoResponse {
+	let (parts, body) = request.into_parts();
+	let target = match rewrite_target_url(&backend, &parts.uri) {
+		Ok(t) => t,
+		Err(e) => return (StatusCode::BAD_REQUEST, format!("Invalid URI: {e}")).into_response(),
+	};
+
+	let method = Method::from_bytes(parts.method.as_str().as_bytes()).unwrap();
+	let mut backend_request = client.request(method, target);
+
+	for (name, value) in &parts.headers {
+		if is_forwardable_header(name) {
+			backend_request = backend_request.header(name, value);
+		}
+	}
+
+	if let Some(host) = &backend_host_override {
+		backend_request = backend_request.header(HOST, host);
+	} else if let Some(host) = parts.headers.get(HOST) {
+		backend_request = backend_request.header(HOST, host);
+	}
+
+	backend_request = backend_request.body(reqwest::Body::wrap_stream(body.into_data_stream()));
+
+	let backend_response = match backend_request.send().await {
+		Ok(r) => r,
+		Err(e) => {
+			warn!("[camouflage] request forwarding failed: {e}");
+			return StatusCode::BAD_GATEWAY.into_response();
+		}
+	};
+
+	let status = StatusCode::from_u16(backend_response.status().as_u16()).unwrap();
+	let mut response_builder = Response::builder().status(status);
+
+	for (name, value) in backend_response.headers() {
+		if is_forwardable_header(name) {
+			response_builder = response_builder.header(name, value);
+		}
+	}
+
+	response_builder
+		.body(axum::body::Body::from_stream(backend_response.bytes_stream()))
+		.unwrap()
+		.into_response()
+}
+
 async fn read_request_body<S>(stream: &mut server::RequestStream<S, Bytes>) -> eyre::Result<Bytes>
 where
 	S: h3::quic::BidiStream<Bytes>,
@@ -196,7 +326,8 @@ fn is_forwardable_header(name: &HeaderName) -> bool {
 			| "proxy-connection"
 			| "transfer-encoding"
 			| "upgrade"
-			| "te" | "trailer"
-			| "host" | "content-length"
+			| "te"
+			| "trailer"
+			| "host"
 	)
 }

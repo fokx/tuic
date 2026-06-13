@@ -10,7 +10,7 @@ use rustls::{
 	pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer},
 };
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use tuic_core::quinn::{
 	Endpoint, EndpointConfig, IdleTimeout, ServerConfig, TokioRuntime, TransportConfig, VarInt,
 	bbr::BbrConfig,
@@ -30,6 +30,7 @@ use crate::{
 pub struct Server {
 	ep: Endpoint,
 	ctx: Arc<AppContext>,
+	tls_config: RustlsServerConfig,
 }
 
 impl Server {
@@ -85,7 +86,7 @@ impl Server {
 		crypto.send_half_rtt_data = ctx.cfg.zero_rtt_handshake;
 
 		let mut config = ServerConfig::with_crypto(Arc::new(
-			QuicServerConfig::try_from(crypto).context("no initial cipher suite found")?,
+			QuicServerConfig::try_from(crypto.clone()).context("no initial cipher suite found")?,
 		));
 		let mut tp_cfg = TransportConfig::default();
 
@@ -151,13 +152,55 @@ impl Server {
 
 		let ep = Endpoint::new(EndpointConfig::default(), Some(config), socket, Arc::new(TokioRuntime))?;
 
-		Ok(Self { ep, ctx })
+		Ok(Self {
+			ep,
+			ctx,
+			tls_config: crypto,
+		})
 	}
 
 	pub async fn start(&self) {
 		warn!("server started, listening on {}", self.ep.local_addr().unwrap());
 		if self.ctx.cfg.restful.is_some() {
 			tokio::spawn(crate::restful::start(self.ctx.clone()));
+		}
+
+		if let Some(camouflage) = self.ctx.cfg.camouflage.as_ref().filter(|c| c.enabled) {
+			let mut https_addrs = Vec::new();
+			for addr_str in &camouflage.https_listen_addr {
+				match addr_str.parse::<SocketAddr>() {
+					Ok(addr) => {
+						let mut https_tls_config = self.tls_config.clone();
+						https_tls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+						if let Err(e) =
+							crate::camouflage::start_https_proxy(self.ctx.clone(), addr, https_tls_config).await
+						{
+							error!("Failed to start HTTPS camouflage proxy at {addr}: {e}");
+						} else {
+							https_addrs.push(addr);
+						}
+					}
+					Err(e) => {
+						error!("Failed to parse HTTPS listen address '{addr_str}': {e}");
+					}
+				}
+			}
+
+			if !https_addrs.is_empty() {
+				for addr_str in &camouflage.http_listen_addr {
+					match addr_str.parse::<SocketAddr>() {
+						Ok(addr) => {
+							// Redirect to the first HTTPS address
+							if let Err(e) = crate::camouflage::start_http_redirect(addr, https_addrs[0]).await {
+								error!("Failed to start HTTP camouflage redirect server at {addr}: {e}");
+							}
+						}
+						Err(e) => {
+							error!("Failed to parse HTTP listen address '{addr_str}': {e}");
+						}
+					}
+				}
+			}
 		}
 
 		loop {
